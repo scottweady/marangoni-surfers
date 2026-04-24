@@ -22,6 +22,10 @@ function V⁻¹(g, Γ::Boundary)
 
 end
 
+function V′(σ, Γ::Boundary)
+    return Γ.V′ * σ
+end
+
 # Evaluate the single-layer potential at an off-curve target point r
 function 𝒱(ζ, sigma, Γ::Boundary)
     N = length(Γ)
@@ -76,4 +80,21 @@ end
 
 function ∂∫(σ, Γ::Boundary)
   return sum(σ .* abs.(Γ.xs)) * (2π / length(Γ))
+end
+
+function solve_mixed(Γ_D::Boundary, Γ_N::Boundary, g_D, g_N)
+    N_D, N_N = length(Γ_D), length(Γ_N)
+
+    V_DD  = Γ_D.V
+    V′_NN = -(1/2π) .* Γ_N.V′
+    V_DN  = _single_layer_cross_matrix(Γ_N, Γ_D)
+    V′_ND = _adjoint_double_layer_cross_matrix(Γ_D, Γ_N)
+
+    jump_N = Diagonal(1 ./ (2 .* sqrt.(1 .- Γ_N.s .^ 2)))
+
+    A = [V_DD                    V_DN;
+         V′_ND  Matrix(jump_N) + V′_NN]
+
+    α = A \ [g_D; g_N]
+    return α[1:N_D], α[N_D+1:end]
 end
