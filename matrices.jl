@@ -33,7 +33,10 @@ function kressweights(N::Int)
     return w
 end
 
-function _laplace2d_single_layer_matrix(s, x, xs)
+"""
+Smooth quadrature, Kress
+"""
+function _laplace2d_single_layer_kress(s, x, xs)
 
     N = length(s)
     wsing = kressweights(N)
@@ -57,30 +60,10 @@ function _laplace2d_single_layer_matrix(s, x, xs)
     return A
 end
 
-function _laplace2d_adjoint_double_layer_matrix(s, x, xs, xss)
-
-    N = length(s)
-    h = 2π / N
-    A = zeros(Float64, N, N)
-
-    for i in 1:N
-        speed_i  = abs(xs[i])
-        diag_val = (imag(xs[i]) * real(xss[i]) - real(xs[i]) * imag(xss[i])) * h / (4π * speed_i^2)
-
-        for j in 1:N
-            if i == j
-                A[i, j] = diag_val
-            else
-                δz = x[i] - x[j]
-                A[i, j] = imag(conj(xs[i]) * δz) * abs(xs[j]) * h / (2π * speed_i * abs2(δz))
-            end
-        end
-    end
-
-    return A
-end
-
-function _laplace2d_single_layer_matrix_arc(s, x, xs)
+"""
+Quadrature for 1/sqrt(d) densities, Bruno 2021
+"""
+function _laplace2d_single_layer_bruno(s, x, xs)
 
     N = length(s)
 
@@ -112,53 +95,60 @@ function _laplace2d_single_layer_matrix_arc(s, x, xs)
     return A
 end
 
-function _laplace2d_adjoint_double_layer_matrix_arc(s, x, xs, xss)
+function _laplace2d_double_layer_adjoint(s, x, xs, xss, w)
 
     N = length(s)
     A = zeros(Float64, N, N)
+    n = (imag.(xs) - im * real.(xs)) ./ abs.(xs)
 
     for i in 1:N
-        speed_i     = abs(xs[i])
-        diag_kernel = imag(conj(xs[i]) * xss[i]) / (2 * speed_i^3)
 
         for j in 1:N
             if i == j
-                A[i, j] = (π/N) * diag_kernel * speed_i
+                A[i, j] =  (1/(4π)) * dot(n[i], xss[i]) / abs(xs[i])^3 * abs(xs[i]) * w[i]
             else
                 δz = x[i] - x[j]
-                A[i, j] = (π/N) * (-imag(conj(xs[i]) * δz) / (speed_i * abs2(δz))) * abs(xs[j])
+                A[i, j] = -(1/(2π)) * (dot(n[i], δz) / abs2(δz)) * abs(xs[j]) * w[j]
             end
         end
+
     end
 
     return A
+
 end
 
 # Cross single-layer: sources on Γ_src, targets on Γ_tgt (smooth, no singularity)
-function _single_layer_cross_matrix(Γ_src::Boundary, Γ_tgt::Boundary)
-    N_src = length(Γ_src)
-    N_tgt = length(Γ_tgt)
-    A = zeros(Float64, N_tgt, N_src)
-    for i in 1:N_tgt
-        for j in 1:N_src
-            A[i,j] = -(π/N_src) / (2π) * log(abs(Γ_tgt.x[i] - Γ_src.x[j])) * abs(Γ_src.xs[j])
-        end
+function _laplace2d_single_layer(Γ_src::Boundary, Γ_tgt::Boundary)
+
+  N_src, N_tgt = length(Γ_src), length(Γ_tgt)
+  A = zeros(Float64, N_tgt, N_src)
+
+  for i in 1:N_tgt
+    for j in 1:N_src
+      A[i,j] = -(1/(2π)) * log(abs(Γ_tgt.x[i] - Γ_src.x[j])) * abs(Γ_src.xs[j]) * Γ_src.w[j]
     end
-    return A
+  end
+
+  return A
+
 end
 
 # Cross adjoint double-layer: sources on Γ_src, normal at Γ_tgt (smooth, no singularity)
 # Γ.V′ stores the raw K̃', so V′_standard = -(1/2π) Γ.V′; cross matrix uses the same convention
-function _adjoint_double_layer_cross_matrix(Γ_src::Boundary, Γ_tgt::Boundary)
-    N_src = length(Γ_src)
-    N_tgt = length(Γ_tgt)
-    A = zeros(Float64, N_tgt, N_src)
-    for i in 1:N_tgt
-        speed_i = abs(Γ_tgt.xs[i])
-        for j in 1:N_src
-            δz = Γ_tgt.x[i] - Γ_src.x[j]
-            A[i,j] = (π/N_src) / (2π) * imag(conj(Γ_tgt.xs[i]) * δz) / (speed_i * abs2(δz)) * abs(Γ_src.xs[j])
-        end
+function _laplace2d_double_layer_adjoint(Γ_src::Boundary, Γ_tgt::Boundary)
+
+  N_src, N_tgt = length(Γ_src), length(Γ_tgt)
+  A = zeros(Float64, N_tgt, N_src)
+
+  for i in 1 : N_tgt
+    n = (imag(Γ_tgt.xs[i]) - im * real(Γ_tgt.xs[i])) / abs.(Γ_tgt.xs[i])
+    for j in 1 : N_src
+      δz = Γ_tgt.x[i] - Γ_src.x[j]
+      A[i,j] = -(1/(2π)) * (dot(n, δz) / abs2(δz)) * abs(Γ_src.xs[j]) * Γ_src.w[j]
     end
-    return A
+  end
+
+  return A
+
 end

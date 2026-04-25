@@ -4,6 +4,21 @@ using LinearAlgebra
 include("boundary.jl")
 include("operators.jl")
 
+function printerror(N, err)
+
+  # If below 1e-12, green; if above 1e-6, red; otherwise, yellow
+  color = if err < 1e-12
+      :green
+  elseif err > 1e-6
+      :red
+  else
+      :yellow
+  end
+
+  printstyled("N = $N, error = $err\n", color=color)
+  
+end
+
 Ns = [8, 16, 32, 64, 128]
 
 # ── Segment test ──────────────────────────────────────────────────────────────
@@ -15,16 +30,16 @@ for N in Ns
     Γ   = segment(N)
     α   = Γ.V \ ones(N)
     err = norm(α .- α_exact) / abs(α_exact)
-    println("  N = $N   error = $err")
+    printerror(N, err)
 end
 
 # ── Circle test 1 ─────────────────────────────────────────────────────────────
-# K′[1] = -1/2 exactly on any closed curve (interior jump condition)
-println("\nCircle: adjoint double-layer applied to 1 (exact = -0.5)")
+# K′[1] = 1/2 exactly on any closed curve (interior jump condition)
+println("\nCircle: adjoint double-layer applied to 1 (exact = 0.5)")
 for N in Ns
     Γ   = circle(N)
     err = norm(Γ.V′ * ones(N) .+ 0.5) / (N * 0.5)
-    println("  N = $N   error = $err")
+    printerror(N, err)
 end
 
 # ── Circle test 2 ─────────────────────────────────────────────────────────────
@@ -36,5 +51,5 @@ for N in Ns
     g        = Γ.V * σ_exact
     σ        = V⁻¹(g, Γ)
     err      = norm(σ .- σ_exact) / norm(σ_exact)
-    println("  N = $N   error = $err")
+    printerror(N, err)
 end
