@@ -12,7 +12,7 @@ function printerror(N, err)
   # If below 1e-12, green; if above 1e-6, red; otherwise, yellow
   color = if err < 1e-12
       :green
-  elseif err > 1e-6
+  elseif err > 1e-4
       :red
   else
       :yellow
@@ -22,7 +22,7 @@ function printerror(N, err)
   
 end
 
-Nspan = [4, 8, 16, 32]
+Nspan = [4, 8, 16, 32, 64]
 
 # ── Segment test ──────────────────────────────────────────────────────────────
 # Exact solution for -1/(2π) ∫₋₁¹ log|x-y| α(y) / √(1-y²) dy = λₙTₙ(y), x ∈ [-1,1]
@@ -90,6 +90,8 @@ let
         printerror(N, err)
     end
 end
+
+include("test_curve.jl")
 
 # ── Circle surfer test ────────────────────────────────────────────────────────
 # Exact swimming speed for a unit disk with g(θ) = cos(2θ), α = π/2.

@@ -11,19 +11,26 @@ include("simulation/simulate.jl")
 
 # ── Parameters ────────────────────────────────────────────────────────────────
 
-M_disk = 16
 Nₛ    = 128
+M     = 16
 α     = π/2
+a, b  = 1.0, 1.0
 g(θ)  = cos(2θ)
-D     = disk(M_disk)
+
+Ω   = ellipse(a, b, M)
+γ(s)   =  a*cos(s) + im*b*sin(s)
+γs(s)  = -a*sin(s) + im*b*cos(s)
+γss(s) = -a*cos(s) - im*b*sin(s)
+Γ_D = arc(γ, γs, γss, Nₛ; dom=[α, 2π-α])
+Γ_N = arc(γ, γs, γss, Nₛ; dom=[-α, α])
 
 # ── Run ───────────────────────────────────────────────────────────────────────
 
 Nparticles   = 2
-centers      = [0.0 - 3.0im, 0.0 + 3.0im]
+centers      = [0.0 - 2im, 0.0 + 2im]
 orientations = [0.0, 0.0]
 
 println("Running simulation...")
-traj_pos, traj_ang, traj_t = simulate(centers, orientations; t_end=1.0e8, tol=0.05, plot_mode=:concentration)
+traj_pos, traj_ang, traj_t = simulate(centers, orientations, Ω, Γ_D, Γ_N, g; t_end=1.0e8, plot_mode=:distance, plot_every=0.01, output_file="distances.dat")
 
 readline()

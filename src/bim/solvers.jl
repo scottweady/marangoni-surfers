@@ -55,32 +55,29 @@ function laplace2d(Γ_D::Boundary, Γ_N::Boundary, g_D, g_N)
     return densities[1], densities[2], ϕinf
 end
 
-"""
-Build arc boundaries for each particle and solve the surfactant Laplace problem.
+_place(Γ::Boundary, xcm, θcm) = (eθ = exp(1im*θcm);
+    Boundary(Γ.t, Γ.s, xcm .+ eθ.*Γ.γ, eθ.*Γ.γt, eθ.*Γ.γtt, Γ.w, Γ.V, Γ.V′))
 
-Each disk particle at `centers[k]` with orientation `orientations[k]` is split into
-a Dirichlet arc (dom=[α, 2π-α], BC = g(s)) and a Neumann arc (dom=[-α, α], BC = 0).
+"""
+Solve the surfactant Laplace problem given reference arc boundaries.
+
+`Γ_D` and `Γ_N` are reference (body-frame) Dirichlet and Neumann arc boundaries.
+They are rigidly placed at each `(centers[k], orientations[k])` — the self-interaction
+matrices `V`, `V′` are reused since the Laplace kernel is translation/rotation invariant.
+`g` is the Dirichlet BC as a function of arc parameter s.
 Returns `(densities, boundaries, ϕ∞)`.
 """
-function surfactant_solve(centers, orientations; g=θ->cos(2*θ), α=π/2, N=256)
-    function make_boundaries(z0, ψ, α, N)
-        γ(s)   = z0 + exp(1im*(s + ψ))
-        γs(s)  = 1im*exp(1im*(s + ψ))
-        γss(s) = -exp(1im*(s + ψ))
-        Γ_D = arc(γ, γs, γss, N; dom=[α, 2π-α])
-        Γ_N = arc(γ, γs, γss, N; dom=[-α, α])
-        return Γ_D, Γ_N
-    end
-
+function surfactant_solve(centers, orientations, Γ_D::Boundary, Γ_N::Boundary, g)
     boundaries = Boundary[]
     types      = Symbol[]
     rhs        = Vector{Float64}[]
 
-    for (z0, ψ) in zip(centers, orientations)
-        Γ_D, Γ_N = make_boundaries(z0, ψ, α, N)
-        push!(boundaries, Γ_D, Γ_N)
+    for (xcm, θcm) in zip(centers, orientations)
+        γd = _place(Γ_D, xcm, θcm)
+        γn = _place(Γ_N, xcm, θcm)
+        push!(boundaries, γd, γn)
         push!(types, :D, :N)
-        push!(rhs, g.(Γ_D.s), zeros(length(Γ_N)))
+        push!(rhs, g.(γd.s), zeros(length(γn)))
     end
 
     densities, ϕinf = laplace2d(boundaries, types, rhs)
@@ -162,14 +159,14 @@ function marangoni_multipoles(U, ω, α_D, α_N, Γ_D, Γ_N, Ω)
     return (force_monopole=fm, force_dipole=fd, surf_monopole=sm, surf_dipole=sd)
 end
 
-function marangoni_step(centers, orientations; g=g, α=α, Nₛ=Nₛ, D=D, eps=1e-6)
+function marangoni_solve(centers, orientations, Ω, Γ_D::Boundary, Γ_N::Boundary, g; eps=1e-6)
     Np = length(centers)
 
-    σs, boundaries, ϕinf = surfactant_solve(centers, orientations; g=g, α=α, N=Nₛ)
+    σs, boundaries, ϕinf = surfactant_solve(centers, orientations, Γ_D, Γ_N, g)
 
     uslip = Vector{Tuple{Matrix{Float64}, Matrix{Float64}}}(undef, Np)
     for i in 1:Np
-        pts = D.z .+ centers[i]
+        pts = exp(im * orientations[i]) .* Ω.z .+ centers[i]
         bx  = zeros(size(pts))
         by  = zeros(size(pts))
         for j in eachindex(σs)
@@ -181,6 +178,6 @@ function marangoni_step(centers, orientations; g=g, α=α, Nₛ=Nₛ, D=D, eps=1
     end
 
     F = [zeros(3) for _ in 1:Np]
-    _, U = stokes_mobility_fmm_solve(centers, nothing, uslip, F, D; eps=eps)
+    _, U = suspension_mobility_solve(centers, orientations, nothing, uslip, F, Ω; eps=eps)
     return U, σs, boundaries, ϕinf
 end

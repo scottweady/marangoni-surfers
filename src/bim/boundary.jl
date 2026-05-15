@@ -40,6 +40,25 @@ function circle(N::Int)
 end
 
 """
+Closed curve on physical parameter interval `dom` with N Gauss-Chebyshev nodes; uses Kress quadrature.
+
+`γ`, `γs`, `γss` are functions of the physical parameter s.
+The Chebyshev nodes t ∈ (-1,1) are mapped to s ∈ dom via s = a + (b-a)(t+1)/2.
+`γt` and `γtt` are chain-ruled derivatives with respect to t.
+"""
+function curve(γ, γs, γss, N::Int)
+    t, _ = trigpts(N)
+    s = t
+    γ   = γ.(t)
+    γt  = γs.(t)
+    γtt = γss.(t)
+    w   = fill(2π / N, N)
+    return Boundary(t, s, γ, γt, γtt, w,
+                    _laplace2d_single_layer_kress(t, γ, γt),
+                    _laplace2d_double_layer_adjoint(t, γ, γt, γtt, w))
+end
+
+"""
 Straight segment on `dom` with N Gauss-Chebyshev nodes; uses Bruno quadrature for the self single-layer.
 
 The density is assumed to have 1/√(1-t²) endpoint behavior.
@@ -66,12 +85,12 @@ function arc(γ, γs, γss, N::Int; dom=[-1.0, 1.0])
     t, w = gausschebyshevt(N)
     a, b = dom
     s    = a .+ (b - a) .* (t .+ 1) ./ 2
-    γv   = γ.(s)
-    γtv  = γs.(s)  .* ((b - a) / 2)
-    γttv = γss.(s) .* ((b - a) / 2)^2
-    return Boundary(t, s, γv, γtv, γttv, w,
-                    _laplace2d_single_layer_bruno(t, γv, γtv, w),
-                    _laplace2d_double_layer_adjoint(t, γv, γtv, γttv, w))
+    γ   = γ.(s)
+    γt  = γs.(s)  .* ((b - a) / 2)
+    γtt = γss.(s) .* ((b - a) / 2)^2
+    return Boundary(t, s, γ, γt, γtt, w,
+                    _laplace2d_single_layer_bruno(t, γ, γt, w),
+                    _laplace2d_double_layer_adjoint(t, γ, γt, γtt, w))
 end
 
 "Unit-circle arc on `dom`; convenience wrapper with γ(s) = exp(is)."

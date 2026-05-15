@@ -36,6 +36,11 @@ function V′(σ, Γ::Boundary)
     return Γ.V′ * σ
 end
 
+"Double layer"
+function K′(σ, Γ::Boundary)
+    return transpose(Γ.V') * σ
+end
+
 # Workhorse: ∑ⱼ kernel(ζ - γⱼ) σⱼ |γ′ⱼ| wⱼ for scalar or array targets.
 function _smooth_evaluation(ζ::Number, σ, kernel, Γ::Boundary)
     δz = ζ .- Γ.γ

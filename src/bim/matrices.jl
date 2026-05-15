@@ -112,7 +112,7 @@ function _laplace2d_double_layer_adjoint(t, γ, γt, γtt, w)
     for i in 1:N
         for j in 1:N
             if i == j
-                A[i, j] = (1/(4π)) * dot(n[i], γtt[i]) / abs(γt[i])^3 * abs(γt[i]) * w[i]
+                A[i, j] = (1/(4π)) * dot(n[i], γtt[i]) / abs(γt[i]) * w[i]
             else
                 δz       = γ[i] - γ[j]
                 A[i, j]  = -(1/(2π)) * (dot(n[i], δz) / abs2(δz)) * abs(γt[j]) * w[j]
