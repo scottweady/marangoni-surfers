@@ -1,4 +1,5 @@
 
+
 # Single-layer solve on the upper semicircle arc dom=[-π/2, π/2].
 # RHS g(θ) = cos(2θ); convergence measured via the potential at an off-arc point.
 println("\nArc (unit circle, dom=[-π/2,π/2]): single-layer solve, potential at z=2")

@@ -1,5 +1,5 @@
 
-using Printf
+using LinearAlgebra
 
 function _jump_term(Γ::Boundary)
     Γ.open ? Diagonal(1 ./ (2 .* sqrt.(1 .- Γ.t.^2))) : 0.5 * I(length(Γ))
@@ -88,73 +88,70 @@ arc boundaries for the surfactant solve, and `g` is the Dirichlet BC as a functi
 of arc parameter s.
 Returns `(U, ω, α_D, α_N, Γ_D, Γ_N, Ω)`. Pass the last five to `marangoni_multipoles` if needed.
 """
-function marangoni_solve(xcm, θcm, Ω, Γ_D::Boundary, Γ_N::Boundary, g; eps=1e-12)
+function marangoni_solve(xcm, θcm, Ω, Γ_D::Boundary, Γ_N::Boundary, g; tol=1e-6)
 
     Nparticles = length(xcm)
 
     σ, ϕinf, Γ = surfactant_solve(xcm, θcm, Γ_D, Γ_N, g)
 
-    # Cross-particle uinf: loop over j≠i, skipping self (off-surface → spectrally accurate).
-    pts_all = [exp(im * θcm[i]) .* Ω.z .+ xcm[i] for i in 1:Nparticles]
+    # uinf: full ∇ℬ from all particles evaluated at each particle's Stokes nodes.
+    pts  = [exp(im * θcm[i]) .* Ω.z .+ xcm[i] for i in 1:Nparticles]
+    Npts     = length(Ω.z)
+    offs     = [0; cumsum(fill(Npts, Nparticles))]
+    bx, by = ∇ℬ(vcat(vec.(pts)...), σ, Γ; eps=tol)
 
     uinf = Vector{Tuple{Matrix{Float64}, Matrix{Float64}}}(undef, Nparticles)
     for i in 1:Nparticles
-        bx = zeros(size(pts_all[i]))
-        by = zeros(size(pts_all[i]))
-        for j in 1:Nparticles
-            j == i && continue
-            bx_j,  by_j  = ∇ℬ(pts_all[i], σ[2j-1], Γ[2j-1])
-            bx_j2, by_j2 = ∇ℬ(pts_all[i], σ[2j],   Γ[2j])
-            bx .+= bx_j .+ bx_j2
-            by .+= by_j .+ by_j2
-        end
-        uinf[i] = (bx, by)
+        ri = offs[i]+1:offs[i+1]
+        shp = size(pts[i])
+        uinf[i] = (reshape(copy(bx[ri]), shp), reshape(copy(by[ri]), shp))
     end
 
-    # Self-Marangoni force via reciprocal theorem (spectrally accurate, no on-surface ∇ℬ)
-    F = Vector{Vector{Float64}}(undef, Nparticles)
-    for i in 1:Nparticles
-
-        c, s = cos(θcm[i]), sin(θcm[i])
-
-        σ_D_i, σ_N_i = σ[2i-1], σ[2i]
-        Γ_D_i, Γ_N_i = Γ[2i-1], Γ[2i]
-
-        x, y = real.(Ω.z), imag.(Ω.z)
-
-        function _marangoni_force(e)
-            μ = 𝒮_st⁻¹(e, Ω)
-            h = 𝒮(μ[1] .* x + μ[2] .* y, Ω) - (x .* 𝒮(μ[1], Ω) + y .* 𝒮(μ[2], Ω))
-            h_D = boundary_eval(h, Ω, Γ_D_i.s)
-            h_N = boundary_eval(h, Ω, Γ_N_i.s)
-            return integral(h_D .* σ_D_i, Γ_D_i) + integral(h_N .* σ_N_i, Γ_N_i)
-        end
-
-        Fx_b, Fy_b, τ = _marangoni_force((1.0, 0.0)), _marangoni_force((0.0, 1.0)), _marangoni_force((-y, x))
-        F[i] = [c*Fx_b - s*Fy_b, s*Fx_b + c*Fy_b, τ]
-
-    end
-
-    _, U = suspension_mobility_solve(xcm, θcm, uinf, nothing, F, Ω; eps=eps, gmrestol=eps)
+    F = [zeros(3) for _ in 1:Nparticles]
+    _, U = suspension_mobility_solve(xcm, θcm, uinf, nothing, F, Ω; eps=tol, gmrestol=tol)
     
     return U, σ, Γ, ϕinf
 
 end
 
 """
-Compute force and surfactant multipoles from the output of `marangoni_mobility`.
+Single particle marangoni solve via mobility formulation
+"""
+
+function marangoni_solve(Ω, Γ_D, Γ_N, g)
+
+  σ, ϕinf, Γ = surfactant_solve([0.0im], [0.0], Γ_D, Γ_N, g)
+  σ_D, σ_N = σ[1], σ[2]
+  x, y = real.(Ω.z), imag.(Ω.z)
+
+  function _marangoni_force(e)
+    μ = 𝒮_st⁻¹(e, Ω)
+    h = 𝒮(μ[1] .* x + μ[2] .* y, Ω) - (x .* 𝒮(μ[1], Ω) + y .* 𝒮(μ[2], Ω))
+    h_D = boundary_eval(h, Ω, Γ_D.s)
+    h_N = boundary_eval(h, Ω, Γ_N.s)
+    return integral(h_D .* σ_D, Γ_D) + integral(h_N .* σ_N, Γ_N)
+  end
+
+  F = [_marangoni_force((1.0, 0.0)), _marangoni_force((0.0, 1.0)), _marangoni_force((-y, x))]
+  M = stokes_mobility_matrix(Ω)
+  U = real.(M \ F)
+  
+  return U, σ, Γ, ϕinf
+
+end
+
+"""
+Compute the Marangoni multipole moments for a single surfer.
 
 Returns a NamedTuple with fields `force_monopole`, `force_dipole`, `surf_monopole`, `surf_dipole`.
 Each is a vector or matrix of the corresponding moments.
 """
-function marangoni_multipoles(Ω, Γ, g; eps=1e-6)
+function marangoni_multipoles(Ω, Γ_D, Γ_N, g)
 
-  U, σ, _, _ = marangoni_solve([0.0im], [0.0], Ω, Γ[1], Γ[2], g; eps=eps)
-  U = U[1]
+  U, σ, _, _ = marangoni_solve(Ω, Γ_D, Γ_N, g)
 
   ucm, ωcm = U[1:2], U[3]
   α_D, α_N = σ
-  Γ_D, Γ_N = Γ
 
   z    = Ω.z
   x, y = real.(z), imag.(z)

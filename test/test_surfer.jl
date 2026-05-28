@@ -1,6 +1,6 @@
 
 # Exact swimming speed for a unit disk with g(θ) = cos(2θ), α = π/2.
-println("\nCircle surfer: marangoni_mobility convergence in Ns")
+println("\nDisk surfer: convergence in Ns")
 let
     α = π/2
     g(θ) = cos(2θ)
@@ -14,7 +14,7 @@ let
     for Ns in Nspan
         Γ_D = arc(γ, γs, γss, Ns; dom=[α, 2π-α])
         Γ_N = arc(γ, γs, γss, Ns; dom=[-α, α])
-        U, _ = marangoni_mobility(Ω_ref, Γ_D, Γ_N, g)
+        U, _ = marangoni_solve(Ω_ref, Γ_D, Γ_N, g)
         err = abs(U[1] - Uexact)
         printerror(Ns, err)
     end

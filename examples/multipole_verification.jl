@@ -22,14 +22,16 @@ g(s)  = -cos(s)
 Γ_D = arc(γ, γs, γss, Ns; dom=[α_arc, 2π - α_arc])
 Γ_N = arc(γ, γs, γss, Ns; dom=[-α_arc, α_arc])
 
-U, ω, α_D, α_N, Γ_D, Γ_N, Ω = marangoni_mobility(Ω, Γ_D, Γ_N, g)
+U, σ, _, _ = marangoni_solve(Ω, Γ_D, Γ_N, g)
 
+ucm, ωcm = U[1:2], U[3]
+σ_D, σ_N = σ
 # ── Force density via the Stokes inverse ──────────────────────────────────────
 
 x_Ω, y_Ω = real.(Ω.z), imag.(Ω.z)
-bx_Ω = ∇ℬ(Ω.z, α_D, Γ_D)[1] .+ ∇ℬ(Ω.z, α_N, Γ_N)[1]
-by_Ω = ∇ℬ(Ω.z, α_D, Γ_D)[2] .+ ∇ℬ(Ω.z, α_N, Γ_N)[2]
-f = 𝒮_st⁻¹((U[1] .- y_Ω*ω .- bx_Ω, U[2] .+ x_Ω*ω .- by_Ω), Ω)
+bx_Ω = ∇ℬ(Ω.z, σ_D, Γ_D)[1] .+ ∇ℬ(Ω.z, σ_N, Γ_N)[1]
+by_Ω = ∇ℬ(Ω.z, σ_D, Γ_D)[2] .+ ∇ℬ(Ω.z, σ_N, Γ_N)[2]
+f = 𝒮_st⁻¹((ucm[1] .- y_Ω*ωcm .- bx_Ω, ucm[2] .+ x_Ω*ωcm .- by_Ω), Ω)
 
 @printf("Force monopole = (%+.2e, %+.2e)\n",
         real(sum(f[1] .* Ω.dz)), real(sum(f[2] .* Ω.dz)))
@@ -49,9 +51,9 @@ end
 
 # ── Multipole moments ─────────────────────────────────────────────────────────
 
-M0 = integral(α_D, Γ_D) + integral(α_N, Γ_N)
-m1 = [integral(real.(Γ_D.γ) .* α_D, Γ_D) + integral(real.(Γ_N.γ) .* α_N, Γ_N),
-      integral(imag.(Γ_D.γ) .* α_D, Γ_D) + integral(imag.(Γ_N.γ) .* α_N, Γ_N)]
+M0 = integral(σ_D, Γ_D) + integral(σ_N, Γ_N)
+m1 = [integral(real.(Γ_D.γ) .* σ_D, Γ_D) + integral(real.(Γ_N.γ) .* σ_N, Γ_N),
+      integral(imag.(Γ_D.γ) .* σ_D, Γ_D) + integral(imag.(Γ_N.γ) .* σ_N, Γ_N)]
 
 @printf("Monopole M0 = %+.6f\n", M0)
 @printf("Dipole   m1 = (%+.6f, %+.6f)\n", m1...)
@@ -76,8 +78,8 @@ for (θ, col) in zip(θvals, colors)
 
         # Full numerical velocity: Stokes SL + ∇ℬ
         ux_st, uy_st = eval_stokes_sl(ζ, f, Ω)
-        ux_D, uy_D   = ∇ℬ(ζ, α_D, Γ_D)
-        ux_N, uy_N   = ∇ℬ(ζ, α_N, Γ_N)
+        ux_D, uy_D   = ∇ℬ(ζ, σ_D, Γ_D)
+        ux_N, uy_N   = ∇ℬ(ζ, σ_N, Γ_N)
         u_num = [ux_st + ux_D + ux_N, uy_st + uy_D + uy_N]
 
         # Multipole formula

@@ -7,7 +7,7 @@ function suspension_simulate(xcm0, θcm0, Ω, Γ_D::Boundary, Γ_N::Boundary, g;
                   plot_mode=:concentration,
                   output_file="",
                   plot_dir="",
-                  eps=1e-6)
+                  tol=1e-6)
 
     xcm, θcm = copy(xcm0), copy(θcm0)
     Nparticles = length(xcm)
@@ -27,11 +27,11 @@ function suspension_simulate(xcm0, θcm0, Ω, Γ_D::Boundary, Γ_N::Boundary, g;
         dt = min(dt, t_end - t)
 
         # Runge-Kutta 2 for particle positions and orientations
-        U1, σ, Γ, ϕinf = marangoni_solve(xcm, θcm, Ω, Γ_D, Γ_N, g; eps=eps)
+        U1, σ, Γ, ϕinf = marangoni_solve(xcm, θcm, Ω, Γ_D, Γ_N, g; tol=tol)
         Δc1 = dt .* [U1[i][1] + im*U1[i][2] for i in 1:Nparticles]
         Δψ1 = dt .* [U1[i][3]                for i in 1:Nparticles]
 
-        U2, _, _, _ = marangoni_solve(xcm .+ Δc1, θcm .+ Δψ1, Ω, Γ_D, Γ_N, g; eps=eps)
+        U2, _, _, _ = marangoni_solve(xcm .+ Δc1, θcm .+ Δψ1, Ω, Γ_D, Γ_N, g; tol=tol)
         Δc2 = dt .* [U2[i][1] + im*U2[i][2] for i in 1:Nparticles]
         Δψ2 = dt .* [U2[i][3]                for i in 1:Nparticles]
 

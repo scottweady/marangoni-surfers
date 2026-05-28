@@ -1,19 +1,4 @@
 
-# Ns = 2048 ... Ux = -0.002015491351649, Uy = 0.149827388413482
-
-"""
-Convergence study: two unit circles, boundary-to-boundary gap = 2e-2.
-
-COM distance d_cm = 2 + 2e-2.  Both particles oriented at θ = π/2.
-Sweeps arc quadrature points N and records:
-  - x-velocity of particle 1 (proxy for Marangoni force)
-  - surfactant layer densities σ on all four arcs
-
-Produces two plots:
-  (1) Ux convergence vs N
-  (2) σ profiles on particle 1 arcs for each N
-"""
-
 using ProjectedSphericalHarmonics
 using Printf
 using Plots
@@ -27,11 +12,11 @@ include("../src/bim/solvers.jl")
 α_arc = π/2
 g(θ)  = -cos(θ)
 a, b  = 1.0, 1.0
-gap   = 1e-2
+gap   = 0.01
 d_cm  = 2.0 + gap          # COM distance; boundary-to-boundary gap = 2e-2
 
 M     = 32                  # spectral degree for Stokes domain (fixed)
-Ns_vals = [16, 32, 64, 128, 256, 512, 1024, 2048]
+Ns_vals = [128, 256, 512, 1024, 2048, 4096]
 xcm = [-d_cm/2 + 0im, d_cm/2 + 0im]
 θcm = [π/2, π/2]
 
@@ -48,11 +33,11 @@ Ux_vals, Uy_vals = Float64[], Float64[]
 Γ_runs  = []
 
 for Ns in Ns_vals
-    @printf("Ns = %d ... ", Ns)
+    @printf("Ns = %4d ... ", Ns)
     Γ_D = arc(γ, γs, γss, Ns; dom=[α_arc, 2π - α_arc])
     Γ_N = arc(γ, γs, γss, Ns; dom=[-α_arc, α_arc])
 
-    U, σ, Γ, _ = marangoni_solve(xcm, θcm, Ω, Γ_D, Γ_N, g, eps=1e-12)
+    U, σ, Γ, _ = marangoni_solve(xcm, θcm, Ω, Γ_D, Γ_N, g; tol=1e-12)
 
     push!(Ux_vals, U[1][1])
     push!(Uy_vals, U[1][2])
@@ -61,7 +46,7 @@ for Ns in Ns_vals
     @printf("Ux = %.15f, Uy = %.15f\n", U[1][1], U[1][2])
 end
 
-# ── Plot 1: Ux convergence ─────────────────────────────────────────────────────
+# ── Plot 1: U convergence ─────────────────────────────────────────────────────
 
 Ux_ref, Uy_ref = Ux_vals[end], Uy_vals[end]
 err = sqrt.(abs.(Ux_vals[1:end-1] .- Ux_ref).^2 .+ abs.(Uy_vals[1:end-1] .- Uy_ref).^2)
@@ -94,11 +79,3 @@ xlabel!(p3, "s");  ylabel!(p3, "σ")
 p = plot(p1, p2, p3, layout=(1,3), size=(1200, 380))
 display(p)
 readline()
-
-# 64, 0.00627231
-# 128, 0.00627299
-# 256, 0.00626794
-# 512, 0.00627012
-# 1024, 0.00627021
-# 2048, 0.00627023
-# 4096, 0.00627001

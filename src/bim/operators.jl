@@ -2,7 +2,7 @@
 using FFTW
 using FMM3D
 using LinearAlgebra
-using QuadGK
+using ProjectedSphericalHarmonics
 
 # Real inner product and cross product treating complex numbers as 2-vectors.
 dot(a::Complex, b::Complex)   = real(a)*real(b) + imag(a)*imag(b)
@@ -82,7 +82,7 @@ function ∇ℬ(ζ, σs, Γs::Vector{Boundary}; eps=1e-6)
 
     Nsrc = sum(length(Γ) for Γ in Γs)
 
-    if length(ζ) * Nsrc <= Inf
+    if length(ζ) * Nsrc <= 10000
         bx = _smooth_evaluation(ζ, σs[1], r -> real(r)/(4π*abs(r)), Γs[1])
         by = _smooth_evaluation(ζ, σs[1], r -> imag(r)/(4π*abs(r)), Γs[1])
         for k in 2:length(Γs)

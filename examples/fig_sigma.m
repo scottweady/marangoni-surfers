@@ -19,9 +19,9 @@ plot(d, abs(I1_thpi2), 'Color', c2, 'DisplayName', '{\it \theta} = {\it \pi}/2')
 plot(d_fine, abs(I1_th0(1)) ./ (d_fine/d_fine(1)).^(3/2), '--', 'Color', [0.2 0.2 0.2], ...
      'DisplayName', '\propto {\it d}^{-3/2}');
 xlabel('separation, {\it d}')
-ylabel('pair multipole, {\it m}_0')
+ylabel('monopole, {\it m}_0')
 legend('Location', 'northeast', 'Color', 'none', 'FontSize', sp1.FontSize)
-ylim([-0.05 0.25])
+% ylim([-0.05 0.25])
 ylim auto
 
 % ── (b) Multipole expansion error vs r ───────────────────────────────────────
@@ -32,13 +32,15 @@ err_th0   = err(:,2);
 err_thpi2 = err(:,3);
 
 sp2 = subplot(1, 2, 2);
-loglog(r, err_th0,   'Color', c1, 'DisplayName', '{\it \theta} = 0');        hold on
-loglog(r, err_thpi2, 'Color', c2, 'DisplayName', '{\it \theta} = {\it \pi}/2');
-loglog(r, 5 * err_th0(1) * (r(1) ./ r).^1, 'k:',   'HandleVisibility', 'off');
+loglog(r, err_th0, 'o-',  'Color', c1, 'DisplayName', '{\it \theta} = 0');        hold on
+loglog(r, err_thpi2, 'o-', 'Color', c2, 'DisplayName', '{\it \theta} = {\it \pi}/2');
+loglog(r, 5 * err_th0(1) * (r(1) ./ r).^1, 'k--',   'HandleVisibility', 'off');
+loglog(r, (1/5) * err_thpi2(1) * (r(1) ./ r).^2, 'k:',   'HandleVisibility', 'off');
 xlabel('{\it r}')
 ylabel('|{\bf u}_{num} - {\bf u}_{mp}|')
 legend('Location', 'southwest', 'Color', 'none', 'FontSize', sp2.FontSize)
-ylim([1e-8 1e-2])
+xlim([1e2 1e4])
+% ylim([1e-8 1e-2])
 
 % ── Layout ────────────────────────────────────────────────────────────────────
 

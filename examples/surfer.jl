@@ -14,7 +14,7 @@ g(θ) = -cos(θ)
 
 # ── Geometry ──────────────────────────────────────────────────────────────────
 
-Ns = 256
+Ns = 512
 M = 32
 
 γ(s)   =  a * cos.(s) + im * b * sin.(s)
@@ -24,10 +24,9 @@ M = 32
 Ω   = ellipse(a, b, M)
 Γ_D = arc(γ, γs, γss, Ns; dom=[α, 2π-α])
 Γ_N = arc(γ, γs, γss, Ns; dom=[-α, α])
-Γ = [Γ_D, Γ_N]
 
 # ── Solve ────────────────────────────────────────────────────────────────────
-multipoles = marangoni_multipoles(Ω, Γ, g)
+multipoles = marangoni_multipoles(Ω, Γ_D, Γ_N, g)
 
 @printf("velocity            = (%.6f, %.6f, %.6f)\n", multipoles.velocity...)
 @printf("force monopole      = (%.6f, %.6f)\n", multipoles.force_monopole...)

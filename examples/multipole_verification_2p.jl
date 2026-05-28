@@ -23,13 +23,16 @@ g(s)  = -cos(s)
 
 # ── Single-particle multipoles (body frame, θ = 0) ────────────────────────────
 
-_, _, α_D_sp, α_N_sp, Γ_D_sp, Γ_N_sp, _ = marangoni_mobility(Ω, Γ_D, Γ_N, g)
+_, σ_sp, Γ_sp, _ = marangoni_solve(Ω, Γ_D, Γ_N, g)
 
-M0_sp = integral(α_D_sp, Γ_D_sp) + integral(α_N_sp, Γ_N_sp)
-m1_sp = [integral(real.(Γ_D_sp.γ) .* α_D_sp, Γ_D_sp) + integral(real.(Γ_N_sp.γ) .* α_N_sp, Γ_N_sp),
-         integral(imag.(Γ_D_sp.γ) .* α_D_sp, Γ_D_sp) + integral(imag.(Γ_N_sp.γ) .* α_N_sp, Γ_N_sp)]
+σ_D_sp, σ_N_sp = σ_sp
+Γ_D_sp, Γ_N_sp = Γ_sp
 
-@printf("Single-particle: M0 = %+.6f  m1 = (%+.6f, %+.6f)\n", M0_sp, m1_sp...)
+m0_sp = integral(σ_D_sp, Γ_D_sp) + integral(σ_N_sp, Γ_N_sp)
+m1_sp = [integral(real.(Γ_D_sp.γ) .* σ_D_sp, Γ_D_sp) + integral(real.(Γ_N_sp.γ) .* σ_N_sp, Γ_N_sp),
+         integral(imag.(Γ_D_sp.γ) .* σ_D_sp, Γ_D_sp) + integral(imag.(Γ_N_sp.γ) .* σ_N_sp, Γ_N_sp)]
+
+@printf("Single-particle: M0 = %+.6f  m1 = (%+.6f, %+.6f)\n", m0_sp, m1_sp...)
 
 # Rotate body-frame dipole to lab frame for particle at orientation θ
 function rotate_dipole(m1, θ)
@@ -39,7 +42,7 @@ end
 
 # ── Two-particle solve ────────────────────────────────────────────────────────
 
-d   = 20.0
+d   = 100.0
 xcm = [-d/2 + 0im, d/2 + 0im]
 θcm = [0.0, 0.0]   # orientation of each particle; vary to test θ = 0 vs π/2
 
@@ -71,7 +74,7 @@ end
 # ── Max error over circle of radius r ────────────────────────────────────────
 # Columns: r  max_err_th0  max_err_thpi2
 
-rvals  = 10.0 .^ range(2, 4, length=40)
+rvals  = d * 10.0 .^ range(0, 4, length=40)
 θcm_configs = [[0.0, 0.0], [π/2, π/2]]
 Nθ_circle   = 64   # angular samples on each circle
 
@@ -111,7 +114,7 @@ for (icfg, θcm_cfg) in enumerate(θcm_configs)
                 rk     = abs(δ)
                 rk_hat = [real(δ)/rk, imag(δ)/rk]
                 proj   = rk_hat[1]*m1_k[1] + rk_hat[2]*m1_k[2]
-                u_k    = (M0_sp/(4π)) .* rk_hat .- (1/(4π*rk)) .* (m1_k .- proj .* rk_hat)
+                u_k    = (m0_sp/(4π)) .* rk_hat .- (1/(4π*rk)) .* (m1_k .- proj .* rk_hat)
                 ux_mp += u_k[1]; uy_mp += u_k[2]
             end
 

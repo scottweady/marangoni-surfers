@@ -1,8 +1,5 @@
 
-using LinearAlgebra
-using FMM3D
-using Plots
-using ProjectedSphericalHarmonics
+using Printf
 
 include("../src/bim/boundary.jl")
 include("../src/bim/operators.jl")
@@ -21,9 +18,8 @@ end
 
 Nspan = [4, 8, 16, 32, 64]
 
-# include("test_segment.jl")
-# include("test_circle.jl")
-# include("test_arc.jl")
-# include("test_curve.jl")
-# include("test_surfer.jl")
-include("test_grad_b_fmm.jl")
+include("test_segment.jl")
+include("test_circle.jl")
+include("test_arc.jl")
+include("test_curve.jl")
+include("test_surfer.jl")
