@@ -1,12 +1,8 @@
 
-# +1/2 jump term for the Neumann diagonal block.
-# Open arcs (Chebyshev nodes, |s| ≤ 1) use the 1/√(1-t²) weighted jump; closed curves use 1/2 I.
+using Printf
+
 function _jump_term(Γ::Boundary)
-    if all(abs.(Γ.s) .<= 1.0 + 1e-10)
-        return Diagonal(1 ./ (2 .* sqrt.(1 .- Γ.t.^2)))
-    else
-        return 0.5 * I(length(Γ))
-    end
+    Γ.open ? Diagonal(1 ./ (2 .* sqrt.(1 .- Γ.t.^2))) : 0.5 * I(length(Γ))
 end
 
 """
@@ -16,47 +12,45 @@ Assemble and solve the mixed Dirichlet/Neumann Laplace BIM system for a collecti
 An extra unknown ϕ∞ (the far-field constant) is appended and fixed by enforcing ∫_all σ ds = 0.
 Returns `(densities, ϕ∞)` where `densities[i]` is the layer density on boundary i.
 """
-function laplace2d(boundaries::Vector{Boundary}, types::Vector{Symbol}, g::Vector)
-    n     = length(boundaries)
-    Ns    = length.(boundaries)
-    offs  = [0; cumsum(Ns)]
-    N_tot = offs[end]
+function laplace_solve(Γ::Vector{Boundary}, bc::Vector{Symbol}, g::Vector)
 
-    A   = zeros(N_tot + 1, N_tot + 1)
-    rhs = zeros(N_tot + 1)
+    Nparticles = length(Γ)
+    offs  = [0; cumsum(length.(Γ))]
+    Ntotal = offs[end]
 
-    for i in 1:n
+    A   = zeros(Ntotal + 1, Ntotal + 1)
+    rhs = zeros(Ntotal + 1)
+
+    for i in 1:Nparticles
         ri = offs[i]+1 : offs[i+1]
         rhs[ri] = g[i]
-        for j in 1:n
+        for j in 1:Nparticles
             cj = offs[j]+1 : offs[j+1]
             if i == j
-                A[ri, cj] = types[i] == :D ? boundaries[i].V :
-                                              Matrix(_jump_term(boundaries[i])) + boundaries[i].V′
+                A[ri, cj] = bc[i] == :D ? Γ[i].V : Matrix(_jump_term(Γ[i])) + Γ[i].V′
             else
-                A[ri, cj] = types[i] == :D ? _laplace2d_single_layer(boundaries[j], boundaries[i]) :
-                                              _laplace2d_double_layer_adjoint(boundaries[j], boundaries[i])
+                A[ri, cj] = bc[i] == :D ? _laplace2d_single_layer(Γ[j], Γ[i]) : _laplace2d_double_layer_adjoint(Γ[j], Γ[i])
             end
         end
-        if types[i] == :D
+        if bc[i] == :D
             A[ri, end] .= 1.0
         end
-        A[end, ri] = abs.(boundaries[i].γt) .* boundaries[i].w
+        A[end, ri] = abs.(Γ[i].γt) .* Γ[i].w
     end
 
     σ_aug     = A \ rhs
-    densities = [σ_aug[offs[i]+1:offs[i+1]] for i in 1:n]
-    return densities, σ_aug[end]
+    σ = [σ_aug[offs[i]+1:offs[i+1]] for i in 1:Nparticles]
+    return σ, σ_aug[end]
 end
 
 "Two-boundary convenience wrapper: Dirichlet arc Γ_D and Neumann arc Γ_N."
-function laplace2d(Γ_D::Boundary, Γ_N::Boundary, g_D, g_N)
-    densities, ϕinf = laplace2d([Γ_D, Γ_N], [:D, :N], [g_D, g_N])
-    return densities[1], densities[2], ϕinf
+function laplace_solve(Γ_D::Boundary, Γ_N::Boundary, g_D, g_N)
+    σ, ϕinf = laplace_solve([Γ_D, Γ_N], [:D, :N], [g_D, g_N])
+    return σ[1], σ[2], ϕinf
 end
 
 _place(Γ::Boundary, xcm, θcm) = (eθ = exp(1im*θcm);
-    Boundary(Γ.t, Γ.s, xcm .+ eθ.*Γ.γ, eθ.*Γ.γt, eθ.*Γ.γtt, Γ.w, Γ.V, Γ.V′))
+    Boundary(Γ.open, Γ.t, Γ.s, xcm .+ eθ.*Γ.γ, eθ.*Γ.γt, eθ.*Γ.γtt, Γ.w, Γ.V, Γ.V′))
 
 """
 Solve the surfactant Laplace problem given reference arc boundaries.
@@ -67,67 +61,84 @@ matrices `V`, `V′` are reused since the Laplace kernel is translation/rotation
 `g` is the Dirichlet BC as a function of arc parameter s.
 Returns `(densities, boundaries, ϕ∞)`.
 """
-function surfactant_solve(centers, orientations, Γ_D::Boundary, Γ_N::Boundary, g)
-    boundaries = Boundary[]
-    types      = Symbol[]
-    rhs        = Vector{Float64}[]
+function surfactant_solve(xcm, θcm, Γ_D::Boundary, Γ_N::Boundary, g)
 
-    for (xcm, θcm) in zip(centers, orientations)
-        γd = _place(Γ_D, xcm, θcm)
-        γn = _place(Γ_N, xcm, θcm)
-        push!(boundaries, γd, γn)
-        push!(types, :D, :N)
-        push!(rhs, g.(γd.s), zeros(length(γn)))
+    Γ = Boundary[]
+    bc = Symbol[]
+    rhs = Vector{Float64}[]
+
+    for (xcm_i, θcm_i) in zip(xcm, θcm)
+        Γ_D_i = _place(Γ_D, xcm_i, θcm_i)
+        Γ_N_i = _place(Γ_N, xcm_i, θcm_i)
+        push!(Γ, Γ_D_i, Γ_N_i)
+        push!(bc, :D, :N)
+        push!(rhs, g.(Γ_D_i.s), zeros(length(Γ_N_i.s)))
     end
 
-    densities, ϕinf = laplace2d(boundaries, types, rhs)
-    return densities, boundaries, ϕinf
+    σ, ϕinf = laplace_solve(Γ, bc, rhs)
+    return σ, ϕinf, Γ
+
 end
 
 """
-Solve for the translational velocity U and angular velocity ω of a single ellipse surfer.
+Solve for the translational velocity U and angular velocity ω of a single surfer.
 
-`Ns` is the number of arc quadrature nodes for the surfactant solve.
-`Nq` is the number of quadrature nodes for the Stokes domain discretization.
+`Ω` is the Stokes domain boundary, `Γ_D` and `Γ_N` are the Dirichlet and Neumann
+arc boundaries for the surfactant solve, and `g` is the Dirichlet BC as a function
+of arc parameter s.
 Returns `(U, ω, α_D, α_N, Γ_D, Γ_N, Ω)`. Pass the last five to `marangoni_multipoles` if needed.
 """
-function marangoni_mobility(Ns, Nq, a, b, α, g)
-    Ω      = ellipse(a, b, Nq)
-    z      = Ω.z
-    x, y   = real.(z), imag.(z)
+function marangoni_solve(xcm, θcm, Ω, Γ_D::Boundary, Γ_N::Boundary, g; eps=1e-12)
 
-    γ(s)   =  a * cos.(s) + im * b * sin.(s)
-    γs(s)  = -a * sin.(s) + im * b * cos.(s)
-    γss(s) = -a * cos.(s) - im * b * sin.(s)
+    Nparticles = length(xcm)
 
-    # ── Surfactant solve ──────────────────────────────────────────────────────
+    σ, ϕinf, Γ = surfactant_solve(xcm, θcm, Γ_D, Γ_N, g)
 
-    Γ_D  = arc(γ, γs, γss, Ns; dom=[α, 2π-α])
-    Γ_N  = arc(γ, γs, γss, Ns; dom=[-α, α])
-    α_D, α_N, _ = laplace2d(Γ_D, Γ_N, g.(Γ_D.s), zeros(Ns))
+    # Cross-particle uinf: loop over j≠i, skipping self (off-surface → spectrally accurate).
+    pts_all = [exp(im * θcm[i]) .* Ω.z .+ xcm[i] for i in 1:Nparticles]
 
-    # ── Stokes mobility solve ─────────────────────────────────────────────────
-
-    # reciprocal_vel(μ): boundary trace of S[μ₁x + μ₂y] - xS[μ₁] - yS[μ₂]
-    function reciprocal_vel(μ)
-        tmp = 𝒮(μ[1] .* x + μ[2] .* y, Ω) - (x .* 𝒮(μ[1], Ω) + y .* 𝒮(μ[2], Ω))
-        return boundary_eval(tmp, Ω, Γ_D.s), boundary_eval(tmp, Ω, Γ_N.s)
+    uinf = Vector{Tuple{Matrix{Float64}, Matrix{Float64}}}(undef, Nparticles)
+    for i in 1:Nparticles
+        bx = zeros(size(pts_all[i]))
+        by = zeros(size(pts_all[i]))
+        for j in 1:Nparticles
+            j == i && continue
+            bx_j,  by_j  = ∇ℬ(pts_all[i], σ[2j-1], Γ[2j-1])
+            bx_j2, by_j2 = ∇ℬ(pts_all[i], σ[2j],   Γ[2j])
+            bx .+= bx_j .+ bx_j2
+            by .+= by_j .+ by_j2
+        end
+        uinf[i] = (bx, by)
     end
 
-    M_mob = stokes_mobility_matrix(Ω)
-    rv1   = reciprocal_vel(𝒮_st⁻¹((1, 0), Ω))
-    rv2   = reciprocal_vel(𝒮_st⁻¹((0, 1), Ω))
-    rv3   = reciprocal_vel(𝒮_st⁻¹((-y, x), Ω))
+    # Self-Marangoni force via reciprocal theorem (spectrally accurate, no on-surface ∇ℬ)
+    F = Vector{Vector{Float64}}(undef, Nparticles)
+    for i in 1:Nparticles
 
-    F = [integral(rv1[1] .* α_D, Γ_D) + integral(rv1[2] .* α_N, Γ_N),
-         integral(rv2[1] .* α_D, Γ_D) + integral(rv2[2] .* α_N, Γ_N),
-         integral(rv3[1] .* α_D, Γ_D) + integral(rv3[2] .* α_N, Γ_N)]
+        c, s = cos(θcm[i]), sin(θcm[i])
 
-    result = M_mob \ F
-    U  = real(result[1:2])
-    ω  = real(result[3])
+        σ_D_i, σ_N_i = σ[2i-1], σ[2i]
+        Γ_D_i, Γ_N_i = Γ[2i-1], Γ[2i]
 
-    return U, ω, α_D, α_N, Γ_D, Γ_N, Ω
+        x, y = real.(Ω.z), imag.(Ω.z)
+
+        function _marangoni_force(e)
+            μ = 𝒮_st⁻¹(e, Ω)
+            h = 𝒮(μ[1] .* x + μ[2] .* y, Ω) - (x .* 𝒮(μ[1], Ω) + y .* 𝒮(μ[2], Ω))
+            h_D = boundary_eval(h, Ω, Γ_D_i.s)
+            h_N = boundary_eval(h, Ω, Γ_N_i.s)
+            return integral(h_D .* σ_D_i, Γ_D_i) + integral(h_N .* σ_N_i, Γ_N_i)
+        end
+
+        Fx_b, Fy_b, τ = _marangoni_force((1.0, 0.0)), _marangoni_force((0.0, 1.0)), _marangoni_force((-y, x))
+        F[i] = [c*Fx_b - s*Fy_b, s*Fx_b + c*Fy_b, τ]
+
+    end
+
+    _, U = suspension_mobility_solve(xcm, θcm, uinf, nothing, F, Ω; eps=eps, gmrestol=eps)
+    
+    return U, σ, Γ, ϕinf
+
 end
 
 """
@@ -136,48 +147,33 @@ Compute force and surfactant multipoles from the output of `marangoni_mobility`.
 Returns a NamedTuple with fields `force_monopole`, `force_dipole`, `surf_monopole`, `surf_dipole`.
 Each is a vector or matrix of the corresponding moments.
 """
-function marangoni_multipoles(U, ω, α_D, α_N, Γ_D, Γ_N, Ω)
-    z    = Ω.z
-    x, y = real.(z), imag.(z)
+function marangoni_multipoles(Ω, Γ, g; eps=1e-6)
 
-    bx = ∇ℬ(z, α_D, Γ_D)[1] .+ ∇ℬ(z, α_N, Γ_N)[1]
-    by = ∇ℬ(z, α_D, Γ_D)[2] .+ ∇ℬ(z, α_N, Γ_N)[2]
-    f  = 𝒮_st⁻¹((U[1] .- y*ω .- bx, U[2] .+ x*ω .- by), Ω)
+  U, σ, _, _ = marangoni_solve([0.0im], [0.0], Ω, Γ[1], Γ[2], g; eps=eps)
+  U = U[1]
 
-    fm = [real.(sum(f[1] .* Ω.dz)), real.(sum(f[2] .* Ω.dz))]
-    fd = [real.(sum(x .* f[1] .* Ω.dz))  real.(sum(x .* f[2] .* Ω.dz));
-          real.(sum(y .* f[1] .* Ω.dz))  real.(sum(y .* f[2] .* Ω.dz))]
+  ucm, ωcm = U[1:2], U[3]
+  α_D, α_N = σ
+  Γ_D, Γ_N = Γ
 
-    xD, xN = cos.(Γ_D.s), cos.(Γ_N.s)
-    yD, yN = sin.(Γ_D.s), sin.(Γ_N.s)
+  z    = Ω.z
+  x, y = real.(z), imag.(z)
 
-    sm = [integral(xD .* α_D, Γ_D) + integral(xN .* α_N, Γ_N),
-          integral(yD .* α_D, Γ_D) + integral(yN .* α_N, Γ_N)]
-    sd = [integral(xD.*xD .* α_D, Γ_D) + integral(xN.*xN .* α_N, Γ_N)  integral(xD.*yD .* α_D, Γ_D) + integral(xN.*yN .* α_N, Γ_N);
-          integral(yD.*xD .* α_D, Γ_D) + integral(yN.*xN .* α_N, Γ_N)  integral(yD.*yD .* α_D, Γ_D) + integral(yN.*yN .* α_N, Γ_N)]
+  bx = ∇ℬ(z, α_D, Γ_D)[1] .+ ∇ℬ(z, α_N, Γ_N)[1]
+  by = ∇ℬ(z, α_D, Γ_D)[2] .+ ∇ℬ(z, α_N, Γ_N)[2]
+  f  = 𝒮_st⁻¹((ucm[1] .- y*ωcm .- bx, ucm[2] .+ x*ωcm .- by), Ω)
 
-    return (force_monopole=fm, force_dipole=fd, surf_monopole=sm, surf_dipole=sd)
-end
+  fm = [real.(sum(f[1] .* Ω.dz)), real.(sum(f[2] .* Ω.dz))]
+  fd = [real.(sum(x .* f[1] .* Ω.dz))  real.(sum(x .* f[2] .* Ω.dz));
+        real.(sum(y .* f[1] .* Ω.dz))  real.(sum(y .* f[2] .* Ω.dz))]
 
-function marangoni_solve(centers, orientations, Ω, Γ_D::Boundary, Γ_N::Boundary, g; eps=1e-6)
-    Np = length(centers)
+  xD, xN = cos.(Γ_D.s), cos.(Γ_N.s)
+  yD, yN = sin.(Γ_D.s), sin.(Γ_N.s)
 
-    σs, boundaries, ϕinf = surfactant_solve(centers, orientations, Γ_D, Γ_N, g)
+  sm = [integral(xD .* α_D, Γ_D) + integral(xN .* α_N, Γ_N),
+        integral(yD .* α_D, Γ_D) + integral(yN .* α_N, Γ_N)]
+  sd = [integral(xD.*xD .* α_D, Γ_D) + integral(xN.*xN .* α_N, Γ_N)  integral(xD.*yD .* α_D, Γ_D) + integral(xN.*yN .* α_N, Γ_N);
+        integral(yD.*xD .* α_D, Γ_D) + integral(yN.*xN .* α_N, Γ_N)  integral(yD.*yD .* α_D, Γ_D) + integral(yN.*yN .* α_N, Γ_N)]
 
-    uslip = Vector{Tuple{Matrix{Float64}, Matrix{Float64}}}(undef, Np)
-    for i in 1:Np
-        pts = exp(im * orientations[i]) .* Ω.z .+ centers[i]
-        bx  = zeros(size(pts))
-        by  = zeros(size(pts))
-        for j in eachindex(σs)
-            bxj, byj = ∇ℬ(pts, σs[j], boundaries[j])
-            bx .+= bxj
-            by .+= byj
-        end
-        uslip[i] = (-bx, -by)
-    end
-
-    F = [zeros(3) for _ in 1:Np]
-    _, U = suspension_mobility_solve(centers, orientations, nothing, uslip, F, Ω; eps=eps)
-    return U, σs, boundaries, ϕinf
+  return (velocity=U, force_monopole=fm, force_dipole=fd, surf_monopole=sm, surf_dipole=sd)
 end

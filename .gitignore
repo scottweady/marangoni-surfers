@@ -2,7 +2,10 @@
 archive
 CLAUDE.md
 local
+manuscript
+movies
 notes
 
+*.dat
 *.png
 

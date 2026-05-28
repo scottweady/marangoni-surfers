@@ -15,6 +15,7 @@ Fields
 - `V′`  : pre-built self adjoint double-layer matrix (N×N)
 """
 struct Boundary
+    open :: Bool
     t   :: Vector{Float64}
     s   :: Vector{Float64}
     γ   :: Vector{ComplexF64}
@@ -34,7 +35,7 @@ function circle(N::Int)
     γt  = 1im .* exp.(1im .* t)
     γtt = -exp.(1im .* t)
     w   = fill(2π / N, N)
-    return Boundary(t, t, γ, γt, γtt, w,
+    return Boundary(false, t, t, γ, γt, γtt, w,
                     _laplace2d_single_layer_kress(t, γ, γt),
                     _laplace2d_double_layer_adjoint(t, γ, γt, γtt, w))
 end
@@ -53,7 +54,7 @@ function curve(γ, γs, γss, N::Int)
     γt  = γs.(t)
     γtt = γss.(t)
     w   = fill(2π / N, N)
-    return Boundary(t, s, γ, γt, γtt, w,
+    return Boundary(false, t, s, γ, γt, γtt, w,
                     _laplace2d_single_layer_kress(t, γ, γt),
                     _laplace2d_double_layer_adjoint(t, γ, γt, γtt, w))
 end
@@ -69,7 +70,7 @@ function segment(N::Int; dom=[-1.0, 1.0])
     γ    = ComplexF64.(0.5 * (b - a) * t .+ 0.5 * (a + b))
     γt   = fill(ComplexF64(0.5 * (b - a)), N)
     γtt  = zeros(ComplexF64, N)
-    return Boundary(t, t, γ, γt, γtt, w,
+    return Boundary(true, t, t, γ, γt, γtt, w,
                     _laplace2d_single_layer_bruno(t, γ, γt, w),
                     _laplace2d_double_layer_adjoint(t, γ, γt, γtt, w))
 end
@@ -88,7 +89,7 @@ function arc(γ, γs, γss, N::Int; dom=[-1.0, 1.0])
     γ   = γ.(s)
     γt  = γs.(s)  .* ((b - a) / 2)
     γtt = γss.(s) .* ((b - a) / 2)^2
-    return Boundary(t, s, γ, γt, γtt, w,
+    return Boundary(true, t, s, γ, γt, γtt, w,
                     _laplace2d_single_layer_bruno(t, γ, γt, w),
                     _laplace2d_double_layer_adjoint(t, γ, γt, γtt, w))
 end

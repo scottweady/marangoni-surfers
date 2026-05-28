@@ -3,7 +3,7 @@
 # Solve ∫_Γ G(ζ,γ') σ(γ') ds' + ϕ∞ = g on an ellipse using the `curve` constructor.
 # Exact solution: u(x,y) = x  (harmonic everywhere).
 # After solving, evaluate 𝒱(ζ, σ, Γ) + ϕ∞ at interior points and compare to Re(ζ).
-println("\nCurve (star γ=(1+a·cos5s)eⁱˢ, a=0.3): laplace2d Dirichlet solve, u=x")
+println("\nCurve (star γ=(1+a·cos5s)eⁱˢ, a=0.3): laplace_solve Dirichlet solve, u=x")
 let
     a = 0.3
     γ(s)   = (1 + a * cos(5s)) * exp(im*s)
@@ -17,7 +17,7 @@ let
     for N in Nspan
         Γ = curve(γ, γs, γss, N)
         g = real.(Γ.γ)
-        σs, ϕ∞ = laplace2d([Γ], [:D], [g])
+        σs, ϕ∞ = laplace_solve([Γ], [:D], [g])
         σ = σs[1]
         u_num = [𝒱(ζ, σ, Γ) + ϕ∞ for ζ in ζ_pts]
         err = norm(u_num .- u_exact, Inf)
@@ -30,7 +30,7 @@ let
     for N in Nspan
         Γ = curve(γ, γs, γss, N)
         g = real.(Γ.γ)
-        σs, _ = laplace2d([Γ], [:D], [g])
+        σs, _ = laplace_solve([Γ], [:D], [g])
         σ = σs[1]
         dudn_num   = σ / 2 + V′(σ, Γ)
         dudn_exact = imag.(Γ.γt) ./ abs.(Γ.γt)
