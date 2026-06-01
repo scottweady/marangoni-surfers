@@ -5,12 +5,12 @@ let
     α = π/2
     g(θ) = cos(2θ)
     Uexact = (π/16) * (1 + cos(α)) * sin(α)^2
-    Nq = 32
+    M = 32
     a, b = 1.0, 1.0
     γ(s)   =  a * cos.(s) + im * b * sin.(s)
     γs(s)  = -a * sin.(s) + im * b * cos.(s)
     γss(s) = -a * cos.(s) - im * b * sin.(s)
-    Ω_ref = ellipse(a, b, Nq)
+    Ω_ref = ellipse(a, b, M)
     for Ns in Nspan
         Γ_D = arc(γ, γs, γss, Ns; dom=[α, 2π-α])
         Γ_N = arc(γ, γs, γss, Ns; dom=[-α, α])

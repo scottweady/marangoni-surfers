@@ -6,6 +6,20 @@ include("../src/bim/boundary.jl")
 include("../src/bim/operators.jl")
 include("../src/bim/solvers.jl")
 
+# Monopole and dipole of surfactant density on (Γ_D, Γ_N) relative to center xc
+function surfactant_multipoles(σ_D, Γ_D, σ_N, Γ_N, xc=0.0+0.0im)
+    m0 = integral(σ_D, Γ_D) + integral(σ_N, Γ_N)
+    m1 = [integral((real.(Γ_D.γ) .- real(xc)) .* σ_D, Γ_D) + integral((real.(Γ_N.γ) .- real(xc)) .* σ_N, Γ_N),
+          integral((imag.(Γ_D.γ) .- imag(xc)) .* σ_D, Γ_D) + integral((imag.(Γ_N.γ) .- imag(xc)) .* σ_N, Γ_N)]
+    return m0, m1
+end
+
+# Rotate body-frame dipole to lab frame for particle at orientation θ
+function rotate_dipole(m1, θ)
+    c, s = cos(θ), sin(θ)
+    return [c*m1[1] - s*m1[2], s*m1[1] + c*m1[2]]
+end
+
 # ── Setup ─────────────────────────────────────────────────────────────────────
 
 Ns    = 256
@@ -28,23 +42,17 @@ _, σ_sp, Γ_sp, _ = marangoni_solve(Ω, Γ_D, Γ_N, g)
 σ_D_sp, σ_N_sp = σ_sp
 Γ_D_sp, Γ_N_sp = Γ_sp
 
-m0_sp = integral(σ_D_sp, Γ_D_sp) + integral(σ_N_sp, Γ_N_sp)
-m1_sp = [integral(real.(Γ_D_sp.γ) .* σ_D_sp, Γ_D_sp) + integral(real.(Γ_N_sp.γ) .* σ_N_sp, Γ_N_sp),
-         integral(imag.(Γ_D_sp.γ) .* σ_D_sp, Γ_D_sp) + integral(imag.(Γ_N_sp.γ) .* σ_N_sp, Γ_N_sp)]
+m0_sp, m1_sp = surfactant_multipoles(σ_D_sp, Γ_D_sp, σ_N_sp, Γ_N_sp)
 
-@printf("Single-particle: M0 = %+.6f  m1 = (%+.6f, %+.6f)\n", m0_sp, m1_sp...)
-
-# Rotate body-frame dipole to lab frame for particle at orientation θ
-function rotate_dipole(m1, θ)
-    c, s = cos(θ), sin(θ)
-    return [c*m1[1] - s*m1[2], s*m1[1] + c*m1[2]]
-end
+@printf("Single-particle: m0 = %+.6f  m1 = (%+.6f, %+.6f)\n", m0_sp, m1_sp...)
 
 # ── Two-particle solve ────────────────────────────────────────────────────────
 
 d   = 100.0
 xcm = [-d/2 + 0im, d/2 + 0im]
 θcm = [0.0, 0.0]   # orientation of each particle; vary to test θ = 0 vs π/2
+
+use_2p_multipoles = true   # if true, compute m0/m1 from the two-particle BIM solve
 
 # ── Force density on each particle's Stokes domain ───────────────────────────
 
@@ -91,6 +99,17 @@ for (icfg, θcm_cfg) in enumerate(θcm_configs)
             particle_force_density(k, xcm, θcm_cfg, U_cfg, σ_cfg, Γ_cfg, Ω)
     end
 
+    # Per-particle multipole coefficients for this configuration
+    if use_2p_multipoles
+        m0_cfg = Vector{Float64}(undef, 2)
+        m1_cfg = Vector{Vector{Float64}}(undef, 2)
+        for k in 1:2
+            m0_cfg[k], m1_cfg[k] = surfactant_multipoles(σ_cfg[2k-1], Γ_cfg[2k-1], σ_cfg[2k], Γ_cfg[2k], xcm[k])
+            @printf("2-particle (cfg=%d, k=%d): m0 = %+.6f  m1 = (%+.6f, %+.6f)\n",
+                    icfg, k, m0_cfg[k], m1_cfg[k]...)
+        end
+    end
+
     for (ir, r) in enumerate(rvals)
         θ_circle = range(0, 2π, length=Nθ_circle+1)[1:end-1]
         err_max  = 0.0
@@ -109,12 +128,18 @@ for (icfg, θcm_cfg) in enumerate(θcm_configs)
 
             ux_mp = uy_mp = 0.0
             for k in 1:2
-                m1_k   = rotate_dipole(m1_sp, θcm_cfg[k])
+                if use_2p_multipoles
+                    m0_k = m0_cfg[k]
+                    m1_k = m1_cfg[k]
+                else
+                    m0_k = m0_sp
+                    m1_k = rotate_dipole(m1_sp, θcm_cfg[k])
+                end
                 δ      = ζ - xcm[k]
                 rk     = abs(δ)
                 rk_hat = [real(δ)/rk, imag(δ)/rk]
                 proj   = rk_hat[1]*m1_k[1] + rk_hat[2]*m1_k[2]
-                u_k    = (m0_sp/(4π)) .* rk_hat .- (1/(4π*rk)) .* (m1_k .- proj .* rk_hat)
+                u_k    = (m0_k/(4π)) .* rk_hat .- (1/(4π*rk)) .* (m1_k .- proj .* rk_hat)
                 ux_mp += u_k[1]; uy_mp += u_k[2]
             end
 

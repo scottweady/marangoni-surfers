@@ -22,9 +22,8 @@ enforcing ∫σ ds = 0.  Returns (σ, λ) where λ is the additive constant.
 function V⁻¹(g, Γ::Boundary; decay=true)
     N  = length(Γ)
     e  = ones(N)
-    dt = abs.(Γ.γt) .* Γ.w
     if decay
-        A   = [Γ.V  e; dt' 0.0]
+        A   = [Γ.V  e; Γ.dΓ' 0.0]
         sol = A \ [g; 0.0]
         return sol[1:N], sol[N+1]
     else
@@ -45,13 +44,13 @@ end
 # Workhorse: ∑ⱼ kernel(ζ - γⱼ) σⱼ |γ′ⱼ| wⱼ for scalar or array targets.
 function _smooth_evaluation(ζ::Number, σ, kernel, Γ::Boundary)
     δz = ζ .- Γ.γ
-    return sum(kernel.(δz) .* σ .* abs.(Γ.γt) .* Γ.w)
+    return sum(kernel.(δz) .* σ .* Γ.dΓ)
 end
 
 function _smooth_evaluation(ζ, σ, kernel, Γ::Boundary)
     shp = size(ζ)
     δz  = vec(ζ) .- transpose(Γ.γ)
-    A   = kernel.(δz) .* transpose(σ .* abs.(Γ.γt) .* Γ.w)
+    A   = kernel.(δz) .* transpose(σ .* Γ.dΓ)
     return reshape(sum(A, dims=2), shp)
 end
 
@@ -92,7 +91,7 @@ function ∇ℬ(ζ, σs, Γs::Vector{Boundary}; eps=1e-6)
         return bx, by
     end
 
-    q  = vcat([σs[j] .* abs.(Γs[j].γt) .* Γs[j].w for j in eachindex(Γs)]...)
+    q  = vcat([σs[j] .* Γs[j].dΓ for j in eachindex(Γs)]...)
     γs = vcat([Γs[j].γ for j in eachindex(Γs)]...)
     Ns   = length(γs)
     srcs = vcat(real.(γs)', imag.(γs)', zeros(1, Ns))
@@ -124,7 +123,7 @@ end
 
 "Boundary integral: ∫_Γ σ ds = ∑ⱼ σⱼ |γ′ⱼ| wⱼ."
 function integral(σ, Γ::Boundary)
-    return sum(σ .* abs.(Γ.γt) .* Γ.w)
+    return sum(σ .* Γ.dΓ)
 end
 
 function integral(μ, Ω::Domain)

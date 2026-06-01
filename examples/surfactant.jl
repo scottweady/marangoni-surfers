@@ -6,13 +6,13 @@ include("../src/viz/plotting.jl")
 
 # ── Parameters ────────────────────────────────────────────────────────────────
 
-a, b = 2.0, 1.0
+a, b = 1.0, 1.0
 α = π/2
 g(θ) = -cos(θ)
 
 # ── Geometry ──────────────────────────────────────────────────────────────────
 
-Ns   = 256
+Ns   = 32
 
 γ(s)   =  a*cos(s) + im*b*sin(s)
 γs(s)  = -a*sin(s) + im*b*cos(s)
@@ -23,7 +23,7 @@ Ns   = 256
 
 # ── Configuration ──────────────────────────────────────────────────────────────
 
-Nparticles   = 13
+Nparticles   = 2
 r0, dr   = 8.0, 4.0 # inner radius, radial growth per turn
 θ_spiral = range(0, 4π, length=Nparticles+1)[1:end-1]
 r = r0 .+ dr .* θ_spiral ./ (2π)

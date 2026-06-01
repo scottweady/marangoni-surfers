@@ -1,10 +1,6 @@
 
 using LinearAlgebra
 
-function _jump_term(Γ::Boundary)
-    Γ.open ? Diagonal(1 ./ (2 .* sqrt.(1 .- Γ.t.^2))) : 0.5 * I(length(Γ))
-end
-
 """
 Assemble and solve the mixed Dirichlet/Neumann Laplace BIM system for a collection of boundaries.
 
@@ -12,7 +8,7 @@ Assemble and solve the mixed Dirichlet/Neumann Laplace BIM system for a collecti
 An extra unknown ϕ∞ (the far-field constant) is appended and fixed by enforcing ∫_all σ ds = 0.
 Returns `(densities, ϕ∞)` where `densities[i]` is the layer density on boundary i.
 """
-function laplace_solve(Γ::Vector{Boundary}, bc::Vector{Symbol}, g::Vector)
+function laplace_solve(Γ::Vector{Boundary}, bc::Vector{Symbol}, g::Vector; decay=true, close_eval=false, close_eval_tol=0.01)
 
     Nparticles = length(Γ)
     offs  = [0; cumsum(length.(Γ))]
@@ -20,6 +16,8 @@ function laplace_solve(Γ::Vector{Boundary}, bc::Vector{Symbol}, g::Vector)
 
     A   = zeros(Ntotal + 1, Ntotal + 1)
     rhs = zeros(Ntotal + 1)
+
+    _jump_term(Γ) = Γ.open ? Diagonal(1 ./ (2 .* sqrt.(1 .- Γ.t.^2))) : 0.5 * I(length(Γ))
 
     for i in 1:Nparticles
         ri = offs[i]+1 : offs[i+1]
@@ -29,18 +27,30 @@ function laplace_solve(Γ::Vector{Boundary}, bc::Vector{Symbol}, g::Vector)
             if i == j
                 A[ri, cj] = bc[i] == :D ? Γ[i].V : Matrix(_jump_term(Γ[i])) + Γ[i].V′
             else
-                A[ri, cj] = bc[i] == :D ? _laplace2d_single_layer(Γ[j], Γ[i]) : _laplace2d_double_layer_adjoint(Γ[j], Γ[i])
+                A[ri, cj] = bc[i] == :D ? _laplace2d_single_layer(Γ[j], Γ[i]; close_eval=close_eval, close_eval_tol=close_eval_tol) : _laplace2d_double_layer_adjoint(Γ[j], Γ[i]; close_eval=close_eval, close_eval_tol=close_eval_tol)
             end
         end
+        
         if bc[i] == :D
             A[ri, end] .= 1.0
         end
-        A[end, ri] = abs.(Γ[i].γt) .* Γ[i].w
+
+        A[end, ri] = Γ[i].dΓ
+        
     end
 
-    σ_aug     = A \ rhs
-    σ = [σ_aug[offs[i]+1:offs[i+1]] for i in 1:Nparticles]
-    return σ, σ_aug[end]
+    if decay
+      σ_aug     = A \ rhs
+      σ = [σ_aug[offs[i]+1:offs[i+1]] for i in 1:Nparticles]
+      λ = σ_aug[end]
+    else
+      σ = A[1:Ntotal, 1:Ntotal] \ rhs[1:Ntotal]
+      σ = [σ[offs[i]+1:offs[i+1]] for i in 1:Nparticles]
+      λ = 0.0
+    end
+
+    return σ, λ
+    
 end
 
 "Two-boundary convenience wrapper: Dirichlet arc Γ_D and Neumann arc Γ_N."
@@ -50,7 +60,7 @@ function laplace_solve(Γ_D::Boundary, Γ_N::Boundary, g_D, g_N)
 end
 
 _place(Γ::Boundary, xcm, θcm) = (eθ = exp(1im*θcm);
-    Boundary(Γ.open, Γ.t, Γ.s, xcm .+ eθ.*Γ.γ, eθ.*Γ.γt, eθ.*Γ.γtt, Γ.w, Γ.V, Γ.V′))
+    Boundary(Γ.open, Γ.t, Γ.s, xcm .+ eθ.*Γ.γ, eθ.*Γ.γt, eθ.*Γ.γtt, Γ.w, Γ.dΓ, Γ.V, Γ.V′))
 
 """
 Solve the surfactant Laplace problem given reference arc boundaries.
@@ -173,4 +183,5 @@ function marangoni_multipoles(Ω, Γ_D, Γ_N, g)
         integral(yD.*xD .* α_D, Γ_D) + integral(yN.*xN .* α_N, Γ_N)  integral(yD.*yD .* α_D, Γ_D) + integral(yN.*yN .* α_N, Γ_N)]
 
   return (velocity=U, force_monopole=fm, force_dipole=fd, surf_monopole=sm, surf_dipole=sd)
+  
 end
