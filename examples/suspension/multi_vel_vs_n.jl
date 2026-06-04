@@ -1,16 +1,11 @@
 
-using ProjectedSphericalHarmonics
-using Printf
-using Plots
 
-include("../src/bim/boundary.jl")
-include("../src/bim/operators.jl")
-include("../src/bim/solvers.jl")
+include("../../src/marangoni.jl")
 
 # ── Parameters ────────────────────────────────────────────────────────────────
 
-Ns   = 64
-M    = 16
+Ns   = 1024
+M    = 32
 α    = π/2
 a, b = 1.0, 1.0
 g(θ) = -cos(θ)
@@ -46,6 +41,17 @@ for N in Nvals
     push!(U_center, uc)
     @printf("N = %2d:  |U| = %.6f  (|U|/U0 = %.4f)\n", N, uc, uc / U0)
 end
+
+# ── Write results ─────────────────────────────────────────────────────────────
+
+outfile = joinpath(@__DIR__, "center_speed_vs_N.dat")
+open(outfile, "w") do io
+    @printf(io, "# N  |U|/U0  (d=%.1f  theta0=%.4f  U0=%.10f)\n", d, θ0, U0)
+    for (N, uc) in zip(Nvals, U_center)
+        @printf(io, "%d  %.15e\n", N, uc / U0)
+    end
+end
+println("Written to $outfile")
 
 # ── Plot ──────────────────────────────────────────────────────────────────────
 

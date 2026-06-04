@@ -1,15 +1,10 @@
 
-using ProjectedSphericalHarmonics
-using Printf
-using Plots
 
-include("../src/bim/boundary.jl")
-include("../src/bim/operators.jl")
-include("../src/bim/solvers.jl")
+include("../../src/marangoni.jl")
 
 # ── Setup ─────────────────────────────────────────────────────────────────────
 
-Ns    = 256
+Ns    = 1024
 M     = 32
 α_arc = π/2
 a, b  = 1.0, 1.0

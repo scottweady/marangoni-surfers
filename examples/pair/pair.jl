@@ -9,12 +9,9 @@ Each file contains columns:
   t  x1_cm  y1_cm  θ1  x2_cm  y2_cm  θ2  separation
 """
 
-using ProjectedSphericalHarmonics
 using Printf
 
-include("../src/bim/boundary.jl")
-include("../src/bim/operators.jl")
-include("../src/bim/solvers.jl")
+include("../../src/marangoni.jl")
 
 # ── Parameters ───────────────────────────────────────────────────────────────
 
@@ -25,7 +22,7 @@ aspect_ratios = [1.0]
 Δx_range = [10.0]
 
 # ── Discretization ─────────────────────────────────────────────────────────
-Ns = 256      # arc quadrature points
+Ns = 1024      # arc quadrature points
 M  = 32       # spectral degree for ellipse
 
 # Time integration parameters

@@ -1,8 +1,5 @@
 
-include("../src/bim/boundary.jl")
-include("../src/bim/operators.jl")
-include("../src/bim/solvers.jl")
-include("../src/viz/plotting.jl")
+include("../../src/marangoni.jl")
 
 # ── Parameters ────────────────────────────────────────────────────────────────
 

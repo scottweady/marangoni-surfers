@@ -1,10 +1,6 @@
 
-using ProjectedSphericalHarmonics
-using Printf
 
-include("../src/bim/boundary.jl")
-include("../src/bim/operators.jl")
-include("../src/bim/solvers.jl")
+include("../../src/marangoni.jl")
 
 # Monopole and dipole of surfactant density on (Γ_D, Γ_N) relative to center xc
 function surfactant_multipoles(σ_D, Γ_D, σ_N, Γ_N, xc=0.0+0.0im)
@@ -22,7 +18,7 @@ end
 
 # ── Setup ─────────────────────────────────────────────────────────────────────
 
-Ns    = 256
+Ns    = 1024
 M     = 32
 α_arc = π/2
 a, b  = 1.0, 1.0
@@ -52,7 +48,7 @@ d   = 100.0
 xcm = [-d/2 + 0im, d/2 + 0im]
 θcm = [0.0, 0.0]   # orientation of each particle; vary to test θ = 0 vs π/2
 
-use_2p_multipoles = true   # if true, compute m0/m1 from the two-particle BIM solve
+use_2p_multipoles = false   # if true, compute m0/m1 from the two-particle BIM solve
 
 # ── Force density on each particle's Stokes domain ───────────────────────────
 

@@ -1,46 +1,4 @@
 
-using FFTW
-using FMM3D
-using LinearAlgebra
-using ProjectedSphericalHarmonics
-
-# Real inner product and cross product treating complex numbers as 2-vectors.
-dot(a::Complex, b::Complex)   = real(a)*real(b) + imag(a)*imag(b)
-cross(a::Complex, b::Complex) = real(a)*imag(b) - imag(a)*real(b)
-
-"Apply the pre-built single-layer matrix: (Vσ)[i] = ∫_Γ G(γᵢ, γ') σ(γ') ds'."
-function V(σ, Γ::Boundary)
-    return Γ.V * σ
-end
-
-"""
-Solve Vσ = g on a closed curve, augmented to remove the log-capacity null mode.
-
-With `decay=true` solves the (N+1)×(N+1) system [V e; dt' 0][σ; λ] = [g; 0]
-enforcing ∫σ ds = 0.  Returns (σ, λ) where λ is the additive constant.
-"""
-function V⁻¹(g, Γ::Boundary; decay=true)
-    N  = length(Γ)
-    e  = ones(N)
-    if decay
-        A   = [Γ.V  e; Γ.dΓ' 0.0]
-        sol = A \ [g; 0.0]
-        return sol[1:N], sol[N+1]
-    else
-        return Γ.V \ g, 0.0
-    end
-end
-
-"Apply the pre-built adjoint double-layer matrix: (K′σ)[i] = ∫_Γ ∂ₙG(γᵢ, γ') σ(γ') ds'."
-function V′(σ, Γ::Boundary)
-    return Γ.V′ * σ
-end
-
-"Double layer"
-function K′(σ, Γ::Boundary)
-    return transpose(Γ.V') * σ
-end
-
 # Workhorse: ∑ⱼ kernel(ζ - γⱼ) σⱼ |γ′ⱼ| wⱼ for scalar or array targets.
 function _smooth_evaluation(ζ::Number, σ, kernel, Γ::Boundary)
     δz = ζ .- Γ.γ
@@ -110,22 +68,4 @@ end
 
 function ∇ℬ(ζ, σ, Γ::Boundary; eps=1e-6)
     return ∇ℬ(ζ, [σ], [Γ]; eps=eps)
-end
-
-"Evaluate a domain field f at arc parameter values θ by tracing to the boundary and FFT-interpolating."
-function boundary_eval(f, Ω, s)
-    vals  = trace(f, Ω)
-    N     = length(vals)
-    f̂     = fft(vals) ./ N
-    freqs = fftfreq(N) * N
-    return real.(sum(f̂[k] .* cis.(freqs[k] .* s) for k in 1:N))
-end
-
-"Boundary integral: ∫_Γ σ ds = ∑ⱼ σⱼ |γ′ⱼ| wⱼ."
-function integral(σ, Γ::Boundary)
-    return sum(σ .* Γ.dΓ)
-end
-
-function integral(μ, Ω::Domain)
-    return sum(μ .* Ω.dz)
 end

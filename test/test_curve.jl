@@ -32,7 +32,7 @@ let
         g = real.(Γ.γ)
         σs, _ = laplace_solve([Γ], [:D], [g])
         σ = σs[1]
-        dudn_num   = σ / 2 + V′(σ, Γ)
+        dudn_num   = σ / 2 + Γ.K′ * σ
         dudn_exact = imag.(Γ.γt) ./ abs.(Γ.γt)
         err = norm(dudn_num .- dudn_exact, Inf)
         printerror(N, err)

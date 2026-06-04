@@ -1,6 +1,4 @@
 
-using Plots
-
 function _boundary_polygon(Γ_D::Boundary, Γ_N::Boundary)
     pts = vcat(Γ_N.γ, Γ_D.γ)[sortperm(vcat(Γ_N.s, Γ_D.s))]
     return real.(pts), imag.(pts)

@@ -1,9 +1,6 @@
 
-using Printf
 
-include("../src/bim/boundary.jl")
-include("../src/bim/operators.jl")
-include("../src/bim/solvers.jl")
+include("../../src/marangoni.jl")
 
 # ── Parameters ────────────────────────────────────────────────────────────────
 
@@ -22,7 +19,7 @@ Ns = 1024
 Γ_D = arc(γ, γs, γss, Ns; dom=[α, 2π-α])
 Γ_N = arc(γ, γs, γss, Ns; dom=[-α, α])
 
-separations = range(5.0, 100.0, length=30)
+separations = range(0.0, 100.0, length=50)[2:end]   # skip d=0 to avoid singularity
 
 # ── Sweep: θ = 0 ──────────────────────────────────────────────────────────────
 

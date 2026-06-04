@@ -1,10 +1,6 @@
 
-using ProjectedSphericalHarmonics
-using Printf
 
-include("../src/bim/boundary.jl")
-include("../src/bim/operators.jl")
-include("../src/bim/solvers.jl")
+include("../../src/marangoni.jl")
 
 # ── Parameters ────────────────────────────────────────────────────────────────
 
@@ -14,18 +10,23 @@ g(θ) = -cos(θ)
 
 # ── Geometry ──────────────────────────────────────────────────────────────────
 
-Ns = 512
+Ns = 1024
 M = 32
 
-γ(s)   =  a * cos.(s) + im * b * sin.(s)
-γs(s)  = -a * sin.(s) + im * b * cos.(s)
-γss(s) = -a * cos.(s) - im * b * sin.(s)
+γ(s)   =  a * cos(s) + im * b * sin(s)
+γs(s)  = -a * sin(s) + im * b * cos(s)
+γss(s) = -a * cos(s) - im * b * sin(s)
 
 Ω   = ellipse(a, b, M)
 Γ_D = arc(γ, γs, γss, Ns; dom=[α, 2π-α])
 Γ_N = arc(γ, γs, γss, Ns; dom=[-α, α])
 
-# ── Solve ────────────────────────────────────────────────────────────────────
+# ── Solve ─────────────────────────────────────────────────────────────────────
+
+U, σ, Γ, ϕinf = marangoni_solve(Ω, Γ_D, Γ_N, g)
+
+# ── Multipoles ────────────────────────────────────────────────────────────────
+
 multipoles = marangoni_multipoles(Ω, Γ_D, Γ_N, g)
 
 @printf("velocity            = (%.6f, %.6f, %.6f)\n", multipoles.velocity...)
@@ -33,3 +34,9 @@ multipoles = marangoni_multipoles(Ω, Γ_D, Γ_N, g)
 @printf("force dipole        = [%.6f %.6f; %.6f %.6f]\n", multipoles.force_dipole...)
 @printf("surfactant monopole = (%.6f, %.6f)\n", multipoles.surf_monopole...)
 @printf("surfactant dipole   = [%.6f %.6f; %.6f %.6f]\n", multipoles.surf_dipole...)
+
+# ── Plot concentration ────────────────────────────────────────────────────────
+
+p = plot_concentration([0.0im], σ, ϕinf, Γ)
+display(p)
+readline()

@@ -1,11 +1,6 @@
 
-using ProjectedSphericalHarmonics
-using Printf
-using Plots
 
-include("../src/bim/boundary.jl")
-include("../src/bim/operators.jl")
-include("../src/bim/solvers.jl")
+include("../../src/marangoni.jl")
 
 # ── Parameters ─────────────────────────────────────────────────────────────────
 
@@ -26,8 +21,9 @@ Ns = 1024   # quadrature nodes per arc
 
 # ── Sweep over separation distance ─────────────────────────────────────────────
 
-gaps     = exp10.(range(log10(0.01), log10(1.0), length=10))
-Ux_vals  = Float64[]
+gaps    = exp.(range(log(0.01), log(10.0), length=20))
+ucm_vals = Float64[]
+ω_vals  = Float64[]
 
 for gap in gaps
     d_cm = 2.0 + gap   # center-to-center distance; radius = 1 so gap = d_cm - 2
@@ -35,19 +31,32 @@ for gap in gaps
     θcm  = [π/2, π/2]
 
     @printf("gap = %.4f ... ", gap)
-    U, _, _, _ = marangoni_solve(xcm, θcm, Ω, Γ_D, Γ_N, g; tol=1e-10)
-    Ux = U[1][1]
-    push!(Ux_vals, Ux)
-    @printf("Ux = %.10f\n", Ux)
+    U, _, _, _ = marangoni_solve(xcm, θcm, Ω, Γ_D, Γ_N, g)
+    ucm = U[1][1]
+    ω  = U[1][3]
+    push!(ucm_vals, ucm)
+    push!(ω_vals,  ω)
+    @printf("ucm = %.10f  ω = %.10f\n", ucm, ω)
 end
+
+# ── Write results to file ──────────────────────────────────────────────────────
+
+outfile = joinpath(@__DIR__, "pair_velocity_vs_separation.dat")
+open(outfile, "w") do io
+    println(io, "# gap ucm omega")
+    for (g, u, w) in zip(gaps, ucm_vals, ω_vals)
+        @printf(io, "%.15e %.15e %.15e\n", g, u, w)
+    end
+end
+println("Results written to $outfile")
 
 # ── Plot ───────────────────────────────────────────────────────────────────────
 
-p = plot(gaps, Ux_vals,
+p = plot(gaps, ucm_vals,
          marker=:circle, markersize=4,
          xscale=:log10,
          xlabel="gap (boundary-to-boundary)",
-         ylabel="Ux (particle 1)",
+         ylabel="ucm (particle 1)",
          title="Marangoni pair: x-velocity vs separation (Ns=$Ns)",
          legend=false)
 

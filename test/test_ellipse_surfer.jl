@@ -1,6 +1,5 @@
 
 using SpecialFunctions: ellipk, ellipe
-using Plots
 
 # Ellipse surfer: convergence against the semi-analytical velocity formula
 #   u_{cm,i} = (m_i - m_0) / (2π a b) * ∫_Γ xᵢ σ dΓ

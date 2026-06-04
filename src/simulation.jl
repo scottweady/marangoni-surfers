@@ -1,4 +1,5 @@
 
+
 function suspension_simulate(xcm0, θcm0, Ω, Γ_D::Boundary, Γ_N::Boundary, g;
                   t_end=10.0,
                   dt_min=1e-4, dt_max=10.0,
@@ -23,7 +24,7 @@ function suspension_simulate(xcm0, θcm0, Ω, Γ_D::Boundary, Γ_N::Boundary, g;
     nt = 0
 
     while t < t_end
-      
+
         dt = min(dt, t_end - t)
 
         # Runge-Kutta 2 for particle positions and orientations
@@ -35,7 +36,7 @@ function suspension_simulate(xcm0, θcm0, Ω, Γ_D::Boundary, Γ_N::Boundary, g;
         Δc2 = dt .* [U2[i][1] + im*U2[i][2] for i in 1:Nparticles]
         Δψ2 = dt .* [U2[i][3]                for i in 1:Nparticles]
 
-        # Compute adaptive time step based on minimum gap between particles and maximum speed
+        # Adaptive time step based on minimum gap and maximum speed
         function edge_gap(i, j)
             d = xcm[j] - xcm[i]
             d_hat = d / abs(d)
@@ -50,7 +51,6 @@ function suspension_simulate(xcm0, θcm0, Ω, Γ_D::Boundary, Γ_N::Boundary, g;
         max_speed = maximum(hypot(U1[i][1], U1[i][2]) for i in 1:Nparticles)
         dt_next   = clamp(safety * d_min / max(max_speed, 1e-14), dt_min, dt_max)
 
-        # Update positions and orientations
         xcm_plot = copy(xcm)
         xcm .+= 0.5 .* (Δc1 .+ Δc2)
         θcm .+= 0.5 .* (Δψ1  .+ Δψ2)
@@ -61,11 +61,8 @@ function suspension_simulate(xcm0, θcm0, Ω, Γ_D::Boundary, Γ_N::Boundary, g;
         push!(traj_θcm, copy(θcm))
         push!(traj_t,   t)
 
-        # Print progress
-        @printf("  t = %.4f  dt = %.2e", t, dt_next)
-        println()
-        
-        # Plotting
+        @printf("  t = %.4f  dt = %.2e\n", t, dt_next)
+
         if t >= next_plot
             if plot_mode == :distance
                 dists = [abs(traj_xcm[k][2] - traj_xcm[k][1]) for k in eachindex(traj_t)]
@@ -92,5 +89,5 @@ function suspension_simulate(xcm0, θcm0, Ω, Γ_D::Boundary, Γ_N::Boundary, g;
     end
 
     return traj_xcm, traj_θcm, traj_t
-    
+
 end
