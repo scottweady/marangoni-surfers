@@ -4,6 +4,7 @@ using FastGaussQuadrature
 using FMM3D
 using LinearAlgebra
 using ProjectedSphericalHarmonics
+using SpecialFunctions
 
 using Printf
 using Plots

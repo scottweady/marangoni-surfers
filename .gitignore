@@ -6,6 +6,9 @@ manuscript
 movies
 notes
 
+*.ai
 *.dat
+*.mp4
+*.pdf
 *.png
 

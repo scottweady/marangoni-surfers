@@ -9,6 +9,7 @@ Each file contains columns:
   t  x1_cm  y1_cm  θ1  x2_cm  y2_cm  θ2  separation
 """
 
+using Plots
 using Printf
 
 include("../../src/marangoni.jl")
@@ -18,16 +19,16 @@ include("../../src/marangoni.jl")
 α_arc = π/2   # arc angle (Dirichlet domain)
 g(θ) = -cos(θ)  # surfactant distribution
 
-aspect_ratios = [1.0]
-Δx_range = [10.0]
+aspect_ratios = [2.0,3.0,4.0]
+Δx_range = [16.0]
 
 # ── Discretization ─────────────────────────────────────────────────────────
-Ns = 1024      # arc quadrature points
-M  = 32       # spectral degree for ellipse
+Ns = 128      # arc quadrature points
+M  = 16       # spectral degree for ellipse
 
 # Time integration parameters
-t_max = 10000.0  # max simulation time
-dt_max = 100.0   # max time step
+t_max = 50000  # max simulation time
+dt_max = 10.0   # max time step
 dt_min = 1e-3    # min time step
 cfl_scale = 0.5  # safety factor in U*dt < d using boundary-to-boundary gap d
 stop_dist = 1e-2  # stop when nearest boundary-to-boundary distance is below this
@@ -59,7 +60,7 @@ for a in aspect_ratios
         # ── Initial conditions ───────────────────────────────────────────────
         
         xcm  = [-Δx/2 + 0im, Δx/2 + 0im]   # center of mass positions
-        θcm  = [π/2, π/2]                 # both oriented vertically
+        θcm  = [π/2, π/2]
         U_all = Vector{Vector{Float64}}(undef, 2)
         
         # Storage for trajectory
@@ -67,9 +68,9 @@ for a in aspect_ratios
         trajectory = Tuple{Float64, Float64, Float64, Float64, Float64, Float64, Float64}[]
         
         # Setup file for writing
-        out_dir = joinpath(@__DIR__, "fig3")
+        out_dir = joinpath(@__DIR__, "output")
         mkpath(out_dir)
-        filename = @sprintf("fig3_a%.1f_b%.4f_d%.1f.dat", a, b, Δx)
+        filename = @sprintf("a%.4f_b%.4f_d%.1f.dat", a, b, Δx)
         filepath = joinpath(out_dir, filename)
         io = open(filepath, "w")
         
@@ -79,6 +80,8 @@ for a in aspect_ratios
         step = 0
         max_steps = Int(ceil(t_max / dt_max)) + 1000
         
+        plt = scatter([0.0], [0.0])
+
         while t < t_max && step < max_steps
             
             # Solve for velocities at current configuration
@@ -147,6 +150,16 @@ for a in aspect_ratios
                 dist
             ))
 
+            zN = xcm .+ a * exp.(im * θcm)
+            zS = xcm .- a * exp.(im * θcm)
+            zE = xcm .+ im * b * exp.(im * θcm)
+            zW = xcm .- im * b * exp.(im * θcm)
+            plt = scatter(real.(zN), imag.(zN), aspect_ratio=:equal)
+            scatter!(real.(zE), imag.(zE))
+            scatter!(real.(zW), imag.(zW))
+            scatter!(real.(zS), imag.(zS))
+            display(plt)
+
             @printf("    step=%d  t=%.6f  dt=%.3e  gap=%.6e\n", step, t, dt, dist)
             
             # Write to file every 10 steps
@@ -185,3 +198,4 @@ for a in aspect_ratios
 end
 
 println("\nDone.")
+readline()

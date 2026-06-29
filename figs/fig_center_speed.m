@@ -6,10 +6,9 @@
 % Requires: center_speed_snapshot_thpi2.dat, center_speed_snapshot_th0.dat
 %           center_speed_vs_N_pi2.dat, center_speed_vs_N_0.dat
 
-clear; clc; close all;
+close all;
 
-baseDir = fileparts(mfilename('fullpath'));
-baseDir = fullfile(baseDir, 'data');
+baseDir = fullfile(fileparts(mfilename('fullpath')), '..', 'data');
 
 % ---- Speed data -------------------------------------------------------------
 A2  = readmatrix(fullfile(baseDir, 'center_speed_vs_N_pi2.dat'), 'NumHeaderLines', 1);
@@ -24,8 +23,9 @@ d    = 20;
 u_mp = arrayfun(@(Nk) mp_speed(Nk, d, uS, beta), N);
 
 % ---- Colors -----------------------------------------------------------------
-c0 = [0.2 0.2 0.6];
-c2 = [0.2 0.6 0.4];
+if ~exist('P', 'var'), P = palette(); end
+c0 = P.c1;
+c2 = P.c2;
 
 % ---- Particle geometry (for overlays) ---------------------------------------
 Np      = 13;

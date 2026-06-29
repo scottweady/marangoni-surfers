@@ -2,39 +2,39 @@
 close all
 fig = journal_figure([6.5 2.25], 2, 'tex');
 
-colormap = cmocean('tempo', 3);
-c1 = colormap(3,:);
-c2 = colormap(2,:);
+if ~exist('P', 'var'), P = palette(); end
+c1 = P.c1;
+c2 = P.c2;
 
 % ── (a) Monopole coefficient vs separation ────────────────────────────────────
 
-data = load('sigma_vs_separation.dat');
+dataDir = fullfile(fileparts(mfilename('fullpath')), '..', 'data');
+data = load(fullfile(dataDir, 'sigma_vs_separation.dat'));
 d        = data(:,1);
 I1_th0   = data(:,2);
 I1_thpi2 = data(:,4);
 d_fine = linspace(d(1), d(end), 300)';
 
 % Fit power-law exponent on second half of data
-idx  = floor(numel(d)/2)+1 : numel(d);
-p    = polyfit(log(d(idx)), log(abs(I1_th0(idx))), 1);
-alpha    = p(1);
+p(1) = -5/4;
+p(2) = 0;
 fit0 = exp(polyval(p, log(d_fine)));
-fprintf('abs(I1_th0) ~ d^%.4f\n', alpha);
 
 sp1 = subplot(1, 2, 1);
 plot(d, abs(I1_th0), 'Color', c1, 'DisplayName', '{\it \theta} = 0'); hold on
 plot(d, abs(I1_thpi2), 'Color', c2, 'DisplayName', '{\it \theta} = {\it \pi}/2');
 plot(d_fine, fit0, '--', 'Color', [0.2 0.2 0.2], ...
-     'DisplayName', sprintf('\\propto ({\\it \\Delta x}_{cm})^{%.2f}', alpha));
-xlabel('separation, {\it \Delta x}_{cm}')
-ylabel('monopole, {\it m}_0')
+     'DisplayName', '\propto {\it r}_{12}^{-5/4}');
+xlabel('separation, {\it r}_{12}')
+ylabel('monopole, \sigma_1')
+ylabel(['monopole, \sigma' char(773) char(8321)])
 legend('Location', 'northeast', 'Color', 'none', 'FontSize', sp1.FontSize)
 xlim([0 100])
 ylim([0 0.1])
 
 % ── (b) Multipole expansion error vs r ───────────────────────────────────────
 
-err = load('multipole_error_2p.dat');
+err = load(fullfile(dataDir, 'multipole_error_2p.dat'));
 r         = err(:,1);
 err_th0   = abs(err(:,2));
 err_thpi2 = abs(err(:,3));

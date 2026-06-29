@@ -32,5 +32,5 @@ set(fig, 'defaultLegendEdgeColor', 'none');
 set(fig,{'DefaultAxesXColor','DefaultAxesYColor','DefaultAxesZColor'},{'k','k','k'});
 set(fig,'DefaultTextColor','k');
 set(fig,'defaultAxesFontName','Times');
-
+set(fig,'defaultTextFontName','Times');
 

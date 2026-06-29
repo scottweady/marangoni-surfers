@@ -74,6 +74,97 @@ function laplace_solve(Γ::Vector{Boundary}, bc::Vector{Symbol}, g::Vector; deca
 
 end
 
+"""
+Solve the two-region coupled pressure transmission problem:
+
+    p1 = V_Γ[μ1] + f1          in Ω1 (interior of Γ)
+    p2 = V_Γ[μ2] + V_Γext[τ] + f2   in Ω2 (between Γ and Γ_ext)
+
+where f1 = -ξ1*(a12*δ²*H_Γ[σ] + a11/4*|x|²) and f2 analogously with ξ2, a21, a22.
+H_Γ[σ] is the Helmholtz single-layer with k=1/δ, pre-solved so that H_Γ[σ]=1 on Γ.
+
+Boundary conditions:
+  - p1 = p2  on Γ
+  - (1/ξ1) dp1/dn = (1/ξ2) dp2/dn  on Γ
+  - dp2/dn = 0  on Γ_ext
+
+Returns `(U1, U2)` where `Ui = -(1/ξi) dp/dn` evaluated on each boundary:
+  - `U1` (length N):     normal velocity on Γ, limit from Ω1
+  - `U2` (length N_ext): normal velocity on Γ_ext, ≈ 0 by construction
+"""
+function coupled_pressure_solve(Γ::Boundary, Γ_ext::Boundary;
+                                 ξ1, ξ2, a11, a12, a21, a22, δ)
+
+    N     = length(Γ)
+    N_ext = length(Γ_ext)
+    k     = 1 / δ
+
+    # ── Helmholtz pre-solve: H[σ] = 1 on Γ ──────────────────────────────────
+    H_self = _helmholtz2d_single_layer_kress(Γ.t, Γ.γ, Γ.γt; k=k)
+    σ      = H_self \ ones(N)
+
+    # ── Outward normals ───────────────────────────────────────────────────────
+    n̂1    = (imag.(Γ.γt)     .- im.*real.(Γ.γt))     ./ abs.(Γ.γt)
+    n̂_ext = (imag.(Γ_ext.γt) .- im.*real.(Γ_ext.γt)) ./ abs.(Γ_ext.γt)
+
+    # ── Cross-boundary matrices ───────────────────────────────────────────────
+    V_ext_on_Γ  = _laplace2d_single_layer(Γ_ext, Γ)
+    K′_ext_on_Γ = _laplace2d_double_layer_adjoint(Γ_ext, Γ)
+    K′_Γ_on_ext = _laplace2d_double_layer_adjoint(Γ, Γ_ext)
+
+    K′_H_self = _helmholtz2d_double_layer_adjoint(Γ.t, Γ.γ, Γ.γt, Γ.γtt, Γ.w; k=k)
+
+    K′_H_Γ_on_ext = zeros(N_ext, N)
+    for i in 1:N_ext, j in 1:N
+        r = Γ_ext.γ[i] - Γ.γ[j]
+        ρ = abs(r)
+        K′_H_Γ_on_ext[i, j] = -(k/(2π)) * besselk(1, k*ρ) * real(conj(n̂_ext[i]) * r) / ρ * Γ.dΓ[j]
+    end
+
+    # ── Forcing terms and their normal derivatives ────────────────────────────
+    g1_Γ  = @. -ξ1*a12*δ^2 - ξ1*a11/4 * abs2(Γ.γ)      # f1 on Γ (H[σ]=1)
+    g2_Γ  = @. -ξ2*a21*δ^2 - ξ2*a22/4 * abs2(Γ.γ)      # f2 on Γ
+
+    # ∂f1/∂n1|_Γ from inside (- limit): ∂H/∂n|_- = (-½+K'_H)*σ
+    dn1_H_in  = (-0.5 .* σ) .+ K′_H_self * σ
+    dg1_dn1   = @. -ξ1*a12*δ^2 * dn1_H_in  - ξ1*a11/2 * real(conj(n̂1) * Γ.γ)
+
+    # ∂f2/∂n1|_Γ from outside (+ limit): ∂H/∂n|_+ = (+½+K'_H)*σ
+    dn1_H_out = (0.5 .* σ) .+ K′_H_self * σ
+    dg2_dn1   = @. -ξ2*a21*δ^2 * dn1_H_out - ξ2*a22/2 * real(conj(n̂1) * Γ.γ)
+
+    # ∂f2/∂n2|_Γext (smooth cross-boundary Helmholtz ADL)
+    dn2_H_ext  = K′_H_Γ_on_ext * σ
+    dg2_dn_ext = @. -ξ2*a21*δ^2 * dn2_H_ext - ξ2*a22/2 * real(conj(n̂_ext) * Γ_ext.γ)
+
+    # ── Block system [μ1 (N), μ2 (N), τ (N_ext)] ─────────────────────────────
+    K′_Γ   = Γ.K′
+    K′_ext = Γ_ext.K′
+
+    A = [
+        Γ.V                                 -Γ.V                                   -V_ext_on_Γ;
+        (1/ξ1).*(-0.5.*I(N) .+ K′_Γ)       -(1/ξ2).*(0.5.*I(N) .+ K′_Γ)         -(1/ξ2).*K′_ext_on_Γ;
+        zeros(N_ext, N)                       K′_Γ_on_ext                           -0.5.*I(N_ext) .+ K′_ext
+    ]
+    b = [
+        g2_Γ .- g1_Γ;
+        (1/ξ2).*dg2_dn1 .- (1/ξ1).*dg1_dn1;
+        -dg2_dn_ext
+    ]
+
+    sol = A \ b
+    μ1  = sol[1:N]
+    μ2  = sol[N+1:2N]
+    τ   = sol[2N+1:end]
+
+    # ── U = -(1/ξ) dp/dn on each boundary ────────────────────────────────────
+    U1 = -(1/ξ1) .* ((-0.5 .* μ1 .+ K′_Γ * μ1) .+ dg1_dn1)
+    U2 = -(1/ξ2) .* (K′_Γ_on_ext * μ2 .+ (-0.5 .* τ .+ K′_ext * τ) .+ dg2_dn_ext)
+
+    return U1, U2
+
+end
+
 "Two-boundary convenience wrapper: Dirichlet arc Γ_D and Neumann arc Γ_N."
 function laplace_solve(Γ_D::Boundary, Γ_N::Boundary, g_D, g_N)
     σ, ϕinf = laplace_solve([Γ_D, Γ_N], [:D, :N], [g_D, g_N])
@@ -196,5 +287,53 @@ function marangoni_multipoles(Ω, Γ_D, Γ_N, g)
           integral(yD.*xD .* α_D, Γ_D) + integral(yN.*xN .* α_N, Γ_N)  integral(yD.*yD .* α_D, Γ_D) + integral(yN.*yN .* α_N, Γ_N)]
 
     return (velocity=U, force_monopole=fm, force_dipole=fd, surf_monopole=sm, surf_dipole=sd)
+
+end
+
+"""
+Solve the coupled Laplace–Helmholtz system on a closed boundary Γ:
+
+    p = V[σ] + V[τ] - H[τ],   p|_Γ = 0
+    φ = H[τ],                  φ|_Γ = 1
+
+where V is the Laplace single-layer (kernel -log(r)/2π) and H is the Helmholtz single-layer
+(kernel K₀(r)/2π).  Both boundary conditions give the decoupled system:
+
+    H_mat τ = 1   (Helmholtz first-kind IE, enforces φ = 1 on Γ)
+    V_mat σ = 1 - V_mat τ   (Laplace first-kind IE, enforces p = 0 on Γ)
+
+Returns `(σ, τ, p_fun, φ_fun, velocity)` where the last three are callable at interior points:
+  - `p_fun(ζ)`      : pressure field
+  - `φ_fun(ζ)`      : Helmholtz field
+  - `velocity(ζ)`   : (ux, uy) = -∇p at ζ (not valid on or near Γ)
+"""
+function helmholtz_laplace_solve(Γ::Boundary)
+
+    N = length(Γ)
+    H_mat = _helmholtz2d_single_layer_kress(Γ.t, Γ.γ, Γ.γt)
+
+    # Enforces φ = 1 on Γ via Helmholtz first-kind IE: H_mat τ = 1.
+    τ = H_mat \ ones(N)
+
+    # Enforces p = 0 on Γ via Laplace first-kind IE: V_mat μ = H_mat τ = 1.
+    # Augmented with a free constant c and gauge ∫μ dΓ = 0 to handle boundaries
+    # of logarithmic capacity 1 (where V_mat has a zero eigenvalue).
+    # Then p = V[μ] - H[τ] + c satisfies p = (1-c) - 1 + c = 0 on Γ.
+    A_aug   = [Γ.V ones(N); Γ.dΓ' 0.0]
+    sol     = A_aug \ [ones(N); 0.0]
+    μ, c    = sol[1:N], sol[N+1]
+    σ       = μ .- τ
+
+    p_fun(ζ)  = 𝒱(ζ, μ, Γ) .- ℋ(ζ, τ, Γ) .+ c
+    φ_fun(ζ)  = ℋ(ζ, τ, Γ)
+
+    function velocity(ζ)
+        # u = -∇p;  ∇c = 0 so c drops out
+        vx, vy = ∇𝒱(ζ, μ, Γ)
+        hx, hy = ∇ℋ(ζ, τ, Γ)
+        return -(vx .- hx), -(vy .- hy)
+    end
+
+    return σ, τ, p_fun, φ_fun, velocity
 
 end

@@ -12,6 +12,7 @@ Output: concentration_snapshot.dat
 """
 
 using DelimitedFiles
+using Statistics
 
 include("../src/marangoni.jl")
 
@@ -21,8 +22,8 @@ a, b  = 2.0, 0.5
 α_arc = π/2
 g(θ)  = -cos(θ)
 
-M  = 32
-Ns = 256
+M  = 16
+Ns = 128
 
 γ(s)   =  a*cos(s) + im*b*sin(s)
 γs(s)  = -a*sin(s) + im*b*cos(s)
@@ -34,11 +35,11 @@ Ns = 256
 
 # ── Load snapshot from trajectory dat file ─────────────────────────────────────
 
-datfile = joinpath(@__DIR__, "../data/fig3", "fig3_a2.0_b0.5000_d16.0.dat")
+datfile = joinpath(@__DIR__, "../data/prolate", "a2.0000_b0.5000_d16.0.dat")
 A = readdlm(datfile)
 
 # Use midpoint of trajectory as representative snapshot
-row = A[div(size(A, 1), 2), :]
+row = A[end-15, :]
 t_snap = row[1]
 xcm = [row[2] + im*row[3], row[5] + im*row[6]]
 θcm = [row[4], row[7]]
@@ -74,7 +75,7 @@ println("Done. U[1] = $(U[1])")
 
 # ── Evaluate concentration and velocity on grid ────────────────────────────────
 
-pad  = 3.0
+pad  = 5.0
 Nplt = 200
 xplt = range(minimum(real.(xcm)) - pad, maximum(real.(xcm)) + pad, length=Nplt)
 yplt = range(minimum(imag.(xcm)) - pad, maximum(imag.(xcm)) + pad, length=Nplt)

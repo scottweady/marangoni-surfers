@@ -7,7 +7,8 @@ include("../../src/marangoni.jl")
 Ns    = 1024
 M     = 32
 α_arc = π/2
-a, b  = 1.0, 1.0
+a  = 0.25
+b = 1.0/a
 g(s)  = -cos(s)
 
 γ(s)   =  a*cos(s) + im*b*sin(s)
@@ -50,6 +51,7 @@ M0 = integral(σ_D, Γ_D) + integral(σ_N, Γ_N)
 m1 = [integral(real.(Γ_D.γ) .* σ_D, Γ_D) + integral(real.(Γ_N.γ) .* σ_N, Γ_N),
       integral(imag.(Γ_D.γ) .* σ_D, Γ_D) + integral(imag.(Γ_N.γ) .* σ_N, Γ_N)]
 
+@printf("Swimming speed = (%+.6f, %+.6f)\n", ucm...)      
 @printf("Monopole M0 = %+.6f\n", M0)
 @printf("Dipole   m1 = (%+.6f, %+.6f)\n", m1...)
 

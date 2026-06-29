@@ -46,7 +46,7 @@ m0_sp, m1_sp = surfactant_multipoles(σ_D_sp, Γ_D_sp, σ_N_sp, Γ_N_sp)
 
 d   = 100.0
 xcm = [-d/2 + 0im, d/2 + 0im]
-θcm = [0.0, 0.0]   # orientation of each particle; vary to test θ = 0 vs π/2
+θcm = [π/2, π/2]   # orientation of each particle; vary to test θ = 0 vs π/2
 
 use_2p_multipoles = false   # if true, compute m0/m1 from the two-particle BIM solve
 

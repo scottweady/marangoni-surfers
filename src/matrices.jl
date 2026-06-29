@@ -232,6 +232,24 @@ function _laplace2d_single_layer_kress(t, γ, γt)
 
 end
 
+function _laplace2d_single_layer_kress_b(t, γ, γt)
+
+    N = length(t)
+    A = zeros(Float64, N, N)
+    _, w = _kresspts(N)
+    h = 2π / N
+
+    for i in 1:N, j in 1:N
+        k = mod(i - j, N) + 1
+        A_reg = i == j ? -(1/(2π)) * log(abs(γt[j])) : -(1/(2π)) * log(abs(γ[i] - γ[j]) / (2 * abs(sin((t[i] - t[j]) / 2))))
+        A[i, j] = (w[k] + h * A_reg) * abs(γt[j])
+    end
+
+    return A
+
+end
+
+
 """
 Single-layer matrix for the Laplace log-kernel on an open arc with 1/√(1-t²) endpoint density.
 
@@ -267,6 +285,35 @@ function _laplace2d_single_layer_bruno(t, γ, γt, w)
 end
 
 """
+Single-layer matrix for the Helmholtz K₀-kernel on a smooth closed curve (Kress quadrature).
+
+Splits K₀(r)/(2π) = -log(r)/(2π) + [K₀(r)+log(r)]/(2π).
+The log part uses the same Kress weights as the Laplace matrix.
+The smooth correction [K₀(r)+log(r)]/(2π) → (log 2 - γ_E)/(2π) as r → 0 is integrated
+by the trapezoidal rule (h * smooth_value * |γ′ⱼ|).
+"""
+function _helmholtz2d_single_layer_kress(t, γ, γt; k=1.0)
+
+    N = length(t)
+    H = _laplace2d_single_layer_kress(t, γ, γt)  # Laplace SL matrix (handles log singularity)
+    h = 2π / N
+    γ_E = Base.MathConstants.eulergamma
+
+    for i in 1:N, j in 1:N
+        if i == j
+            # K₀(kr) + log(r) → log(2) - γ_E - log(k) as r → 0
+            H[i, j] += h / (2π) * (log(2) - γ_E - log(k)) * abs(γt[j])
+        else
+            r = abs(γ[i] - γ[j])
+            H[i, j] += h / (2π) * (besselk(0, k*r) + log(r)) * abs(γt[j])
+        end
+    end
+
+    return H
+
+end
+
+"""
 Adjoint double-layer (K′) matrix for the Laplace kernel on a single boundary.
 
 K′[i,j] = -1/(2π) (n(γᵢ)·(γᵢ-γⱼ)) / |γᵢ-γⱼ|² |γ′ⱼ| wⱼ  (i ≠ j)
@@ -287,6 +334,62 @@ function _laplace2d_double_layer_adjoint(t, γ, γt, γtt, w)
         A[i, j] = -(1/(2π)) * (dot(n̂[i], δz) / abs2(δz)) * abs(γt[j]) * w[j]
       end
 
+    end
+
+    return A
+
+end
+
+"""
+Adjoint double-layer (K_k′) matrix for the Helmholtz kernel on a smooth closed curve.
+
+K_k′[i,j] = -k/(2π) K₁(k|γᵢ-γⱼ|) (n(γᵢ)·(γᵢ-γⱼ))/|γᵢ-γⱼ| |γ′ⱼ| wⱼ  (i ≠ j)
+Diagonal uses the curvature limit  κ(γᵢ)/(4π).
+The kernel has a removable singularity (n·r = O(|r|²), K₁(kr)/r ~ 1/(kr²)), so
+plain trapezoidal quadrature is spectrally accurate.
+"""
+function _helmholtz2d_double_layer_adjoint(t, γ, γt, γtt, w; k=1.0)
+
+    N = length(t)
+    A = zeros(Float64, N, N)
+    n̂ = (imag.(γt) .- im .* real.(γt)) ./ abs.(γt)
+
+    for i in 1:N, j in 1:N
+
+        if i == j
+            A[i, j] = (1/(4π)) * real(conj(n̂[i]) * γtt[i]) / abs(γt[i]) * w[i]
+        else
+            δz = γ[i] - γ[j]
+            r  = abs(δz)
+            A[i, j] = -(k/(2π)) * besselk(1, k*r) * real(conj(n̂[i]) * δz) / r * abs(γt[j]) * w[j]
+        end
+
+    end
+
+    return A
+
+end
+
+"""
+Self double-layer matrix K on a closed curve: normal at SOURCE j.
+
+K[i,j] = +1/(2π) (n̂(γⱼ)·(γᵢ-γⱼ)) / |γᵢ-γⱼ|² |γ′ⱼ| wⱼ  (i ≠ j)
+Diagonal uses the same curvature limit as K′ (the limit is symmetric at coincident points).
+The kernel has a removable singularity so the trapezoidal rule is spectrally accurate.
+"""
+function _laplace2d_double_layer(t, γ, γt, γtt, w)
+
+    N = length(t)
+    A = zeros(Float64, N, N)
+    n̂ = (imag.(γt) .- im .* real.(γt)) ./ abs.(γt)
+
+    for i in 1:N, j in 1:N
+        if i == j
+            A[i, j] = (1/(4π)) * real(conj(n̂[j]) * γtt[j]) / abs(γt[j]) * w[j]
+        else
+            δz = γ[i] - γ[j]
+            A[i, j] = (1/(2π)) * real(conj(n̂[j]) / conj(δz)) * abs(γt[j]) * w[j]
+        end
     end
 
     return A
@@ -334,5 +437,29 @@ function _laplace2d_double_layer_adjoint(Γ_src::Boundary, Γ_tgt::Boundary; clo
     end
 
     return A
+
+end
+
+function _periodic_diff_matrix(M)
+
+    m = [0:M÷2; -(M÷2-1):-1]
+    ik = im .* Float64.(m)
+
+    D = real(ifft(Diagonal(ik) * fft(I(M),1), 1))
+
+    return D
+
+end
+
+function _laplace2d_hypersingular(t, γ, γt, γtt)
+
+    N  = length(t)
+    w  = fill(2π/N, N)
+    dΓ = abs.(γt) .* w
+
+    S  = _laplace2d_single_layer_kress(t, γ, γt)
+    Dt = _periodic_diff_matrix(N)
+    Ds = Diagonal(1.0 ./ abs.(γt)) * Dt
+    return -Diagonal(1.0 ./ dΓ) * Ds' * Diagonal(dΓ) * S * Ds
 
 end

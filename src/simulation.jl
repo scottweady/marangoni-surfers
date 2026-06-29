@@ -23,9 +23,33 @@ function suspension_simulate(xcm0, θcm0, Ω, Γ_D::Boundary, Γ_N::Boundary, g;
     dt = dt_min
     nt = 0
 
+    function save_config(label, t, xcm, θcm, ucm)
+        dir  = isempty(plot_dir) ? "." : plot_dir
+        path = joinpath(dir, "frame_$(label).dat")
+        open(path, "w") do io
+            for i in eachindex(xcm)
+                @printf(io, "%.6f %.10f %.10f %.10f %.10f %.10f %.10f\n",
+                        t, real(xcm[i]), imag(xcm[i]), θcm[i], ucm[i][1], ucm[i][2], ucm[i][3])
+            end
+        end
+    end
+
+    # Plot frame 0
+    if !isempty(plot_dir) || plot_mode != :distance
+        U0, σ0, Γ0, ϕinf0 = marangoni_solve(xcm, θcm, Ω, Γ_D, Γ_N, g; tol=tol)
+        p = plot_concentration(xcm, σ0, ϕinf0, Γ0; title="t = 0.00")
+        if !isempty(plot_dir)
+            mkpath(plot_dir)
+            savefig(p, joinpath(plot_dir, "frame_000000.png"))
+        else
+            display(p)
+        end
+        save_config("000000", 0.0, xcm, θcm, U0)
+    end
+
     while t < t_end
 
-        dt = min(dt, t_end - t)
+        dt = min(dt, t_end - t, next_plot - t)
 
         # Runge-Kutta 2 for particle positions and orientations
         U1, σ, Γ, ϕinf = marangoni_solve(xcm, θcm, Ω, Γ_D, Γ_N, g; tol=tol)
@@ -77,13 +101,14 @@ function suspension_simulate(xcm0, θcm0, Ω, Γ_D::Boundary, Γ_N::Boundary, g;
                 p = plot_concentration(xcm_plot, σ, ϕinf, Γ;
                                        title="t = $(round(t, digits=2))")
             end
+            frame = lpad(length(traj_t), 6, '0')
             if !isempty(plot_dir)
                 mkpath(plot_dir)
-                frame = lpad(length(traj_t), 6, '0')
                 savefig(p, joinpath(plot_dir, "frame_$(frame).png"))
             else
                 display(p)
             end
+            save_config(frame, t, xcm, θcm, U1)
             next_plot += plot_every
         end
     end

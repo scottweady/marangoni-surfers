@@ -3,10 +3,10 @@ include("../../src/marangoni.jl")
 
 # ── Parameters ────────────────────────────────────────────────────────────────
 
-Ns = 64
+Ns = 128
 M = 16
 α = π/2
-a = 1.5
+a = sqrt(1.0)
 b = 1.0 / a
 g(θ)  = -cos(θ)
 
@@ -19,13 +19,35 @@ g(θ)  = -cos(θ)
 
 # ── Run ───────────────────────────────────────────────────────────────────────
 
-Nparticles = 31
-d = 5.0
-xcm = [d*(i-1-(Nparticles-1)/2) .+ 0im for i in 1:Nparticles]   # center of mass position
-θcm = (π/2) * ones(Nparticles)   # tangent orientation (counterclockwise)
+config = :hedgehog   # :line or :hedgehog
 
-isdir("frames") && rm("frames"; recursive=true)
+d = 5.0
+
+if config == :line
+    Nparticles = 13
+    xcm = [d*(i-1-(Nparticles-1)/2) .+ 0im for i in 1:Nparticles]
+    θcm = (π/2) * ones(Nparticles)
+
+elseif config == :hedgehog
+    n_rings = 2
+    xs = ComplexF64[]
+    θs  = Float64[]
+    for k in 1:n_rings
+        r   = k * d
+        n_k = round(Int, 2π * r / d)
+        for j in 1:n_k
+            φ = 2π * (j-1) / n_k
+            push!(xs, r * exp(im * φ))
+            push!(θs, 2π*rand())                 # pointing radially outward
+        end
+    end
+    xcm = xs
+    θcm = θs
+    Nparticles = length(xcm)
+end
+
+isdir("data") && rm("data"; recursive=true)
 println("Running simulation...")
-traj_xcm, traj_θcm, traj_t = suspension_simulate(xcm, θcm, Ω, Γ_D, Γ_N, g; t_end=1.0e8, plot_mode=:concentration, plot_every=10.0, output_file="distances.dat", plot_dir="frames", dt_max=10.0)
+traj_xcm, traj_θcm, traj_t = suspension_simulate(xcm, θcm, Ω, Γ_D, Γ_N, g; t_end=500.0, plot_mode=:concentration, plot_every=10.0, output_file="distances.dat", plot_dir="data", dt_max=10.0)
 
 readline()
