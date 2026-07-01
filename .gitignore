@@ -5,6 +5,7 @@ local
 manuscript
 movies
 notes
+stokes
 
 *.ai
 *.dat

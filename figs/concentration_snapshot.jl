@@ -18,7 +18,7 @@ include("../src/marangoni.jl")
 
 # ── Geometry (a=2, b=1/a, fixed area) ─────────────────────────────────────────
 
-a, b  = 2.0, 0.5
+a, b  = 1.0, 1.0
 α_arc = π/2
 g(θ)  = -cos(θ)
 
@@ -35,7 +35,7 @@ Ns = 128
 
 # ── Load snapshot from trajectory dat file ─────────────────────────────────────
 
-datfile = joinpath(@__DIR__, "../data/prolate", "a2.0000_b0.5000_d16.0.dat")
+datfile = joinpath(@__DIR__, "../data/disk", "a1.0000_b1.0000_d16.0.dat")
 A = readdlm(datfile)
 
 # Use midpoint of trajectory as representative snapshot

@@ -8,10 +8,6 @@ function integral(σ, Γ::Boundary)
     return sum(σ .* Γ.dΓ)
 end
 
-function integral(μ, Ω::Domain)
-    return sum(μ .* Ω.dz)
-end
-
 "Fejér first-rule nodes (Chebyshev nodes of first kind) and weights on [-1,1]."
 function _fejerpts(n; dom=[-1,1])
     θ = [π * (2j - 1) / (2n) for j in 1:n]

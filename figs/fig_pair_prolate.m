@@ -44,13 +44,10 @@ for k = 1:2
     plot(axConc, ct*ex_act - st*ey_act + xcm_snap(k), st*ex_act + ct*ey_act + ycm_snap(k), ...
          '-', 'Color', col, 'LineWidth', 3);
 end
-xs_seed = linspace(xplt(1), xplt(end), 12);
-ys_pos  = linspace(yplt(1), yplt(end), 4);
-ys_pos = [ys_pos, 47 47 48 48];
-[ysg,xsg] = meshgrid(ys_pos, xs_seed);
-xy_fwd = stream2(xplt, yplt,  U,  V, xsg, ysg);
-xy_bwd = stream2(xplt, yplt, -U, -V, xsg, ysg);
-h = streamline(axConc, [xy_fwd; xy_bwd]);
+
+before = axConc.Children;
+streamslice(axConc, xplt, yplt, U, V, 2);
+h = setdiff(axConc.Children, before);
 set(h, 'Color', 'w', 'LineWidth', 1.5);
 
 cb       = colorbar(axConc, 'Location', 'westoutside', 'Ticks', 0:0.5:1);
@@ -117,6 +114,7 @@ function val = parse_param(fname, key)
     tok = regexp(fname, ['(?:^|_)' key '([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)'], 'tokens', 'once');
     if isempty(tok); val = NaN; else; val = str2double(tok{1}); end
 end
+
 
 function a = panel_label(str, ax, xOffset, yOffset)
     a = annotation('textbox', 'String', str, 'FontName', 'Times', ...

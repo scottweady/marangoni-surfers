@@ -8,7 +8,7 @@
 
 close all;
 
-baseDir = fullfile(fileparts(mfilename('fullpath')), '..', 'data');
+baseDir = fullfile(fileparts(mfilename('fullpath')), '..', 'data', 'collective');
 
 % ---- Speed data -------------------------------------------------------------
 A2  = readmatrix(fullfile(baseDir, 'center_speed_vs_N_pi2.dat'), 'NumHeaderLines', 1);
