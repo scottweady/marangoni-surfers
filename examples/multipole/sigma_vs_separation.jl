@@ -16,8 +16,8 @@ Ns = 1024
 γ(s)   =  a*cos(s) + im*b*sin(s)
 γs(s)  = -a*sin(s) + im*b*cos(s)
 γss(s) = -a*cos(s) - im*b*sin(s)
-Γ_D = arc(γ, γs, γss, Ns; dom=[α, 2π-α])
-Γ_N = arc(γ, γs, γss, Ns; dom=[-α, α])
+Γ_D = openarc(γ, γs, γss, Ns; dom=[α, 2π-α])
+Γ_N = openarc(γ, γs, γss, Ns; dom=[-α, α])
 
 separations = range(0.0, 100.0, length=50)[2:end]   # skip d=0 to avoid singularity
 
@@ -46,7 +46,10 @@ end
 # ── Write .dat file ───────────────────────────────────────────────────────────
 # Columns: d  I1_th0  I2_th0  I1_thpi2  I2_thpi2
 
-open(joinpath(@__DIR__, "sigma_vs_separation.dat"), "w") do io
+out_dir = joinpath(@__DIR__, "output")
+mkpath(out_dir)
+
+open(joinpath(out_dir, "sigma_vs_separation.dat"), "w") do io
     for (i, d) in enumerate(separations)
         I1_0,   I2_0   = integrals_0[i]
         I1_pi2, I2_pi2 = integrals_pi2[i]
@@ -55,4 +58,4 @@ open(joinpath(@__DIR__, "sigma_vs_separation.dat"), "w") do io
     end
 end
 
-println("Wrote sigma_vs_separation.dat")
+println("\nWrote output/sigma_vs_separation.dat")

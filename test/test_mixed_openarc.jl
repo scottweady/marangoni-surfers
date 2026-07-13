@@ -16,8 +16,8 @@ let
     ζ = 3.0 + 0.0im
 
     function solve_and_eval(N)
-        Γ_D = arc(γ, γs, γss, N; dom=[α, 2π-α])
-        Γ_N = arc(γ, γs, γss, N; dom=[-α, α])
+        Γ_D = openarc(γ, γs, γss, N; dom=[α, 2π-α])
+        Γ_N = openarc(γ, γs, γss, N; dom=[-α, α])
         σ, ϕ∞ = laplace_solve([Γ_D, Γ_N], [:D, :N], [-cos.(3.21*Γ_D.s).*exp.(-Γ_D.s.^2), zeros(N)])
         val = ϕ∞ .+ 𝒱(ζ, σ[1], Γ_D) + 𝒱(ζ, σ[2], Γ_N)
                    

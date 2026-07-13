@@ -13,8 +13,8 @@ g(s)  = -cos(s)
 γs(s)  = -a*sin(s) + im*b*cos(s)
 γss(s) = -a*cos(s) - im*b*sin(s)
 Ω   = ellipse(a, b, M)
-Γ_D = arc(γ_c, γs, γss, Ns; dom=[α_arc, 2π - α_arc])
-Γ_N = arc(γ_c, γs, γss, Ns; dom=[-α_arc, α_arc])
+Γ_D = openarc(γ_c, γs, γss, Ns; dom=[α_arc, 2π - α_arc])
+Γ_N = openarc(γ_c, γs, γss, Ns; dom=[-α_arc, α_arc])
 
 # ── Single-particle constants (body frame, θ = 0, p = e1) ────────────────────
 
@@ -68,7 +68,10 @@ separations   = [8.0, 16.0, 32.0, 64.0, 128.0, 256.0]
 θcm_configs   = [[-π/2, π/2]]
 config_labels = ["θ=0", "θ=π/2"]
 
-open(joinpath(@__DIR__, "farfield_ucm.dat"), "w") do io
+out_dir = joinpath(@__DIR__, "output")
+mkpath(out_dir)
+
+open(joinpath(out_dir, "multipole_rb.dat"), "w") do io
     @printf(io, "# d   err_u_th0   err_ω_th0   err_u_thpi2   err_ω_thpi2\n")
 
     for (icfg, θcm) in enumerate(θcm_configs)
@@ -93,4 +96,4 @@ open(joinpath(@__DIR__, "farfield_ucm.dat"), "w") do io
     end
 end
 
-println("\nWrote farfield_ucm.dat")
+println("\nWrote output/multipole_rb.dat")

@@ -1,17 +1,34 @@
 
 # ── Close evaluation ──────────────────────────────────────────────────────────
 
-"Find the complex preimage t of ζ under γ via Halley's method on a truncated Chebyshev interpolant."
+"""
+    _find_preimage(ζ, Γ; maxiter=20, tol=1e-15, verbose=false)
+
+Find the complex preimage `t` of `ζ` under `γ` via Halley's method on a truncated
+Chebyshev interpolant.
+
+Truncates the interpolant to `min(length(Γ), 32)` Chebyshev modes to cap Clenshaw
+amplification outside `[-1,1]` (`T_k(t) ~ cosh(k·cosh⁻¹|t|)`; 32 terms limits
+amplification to ~87 at `|t|=1.013`), and starts from the affine chord-map inverse
+(Klinteberg 2020, eq. 30).
+
+# Arguments
+- `ζ`: target point in the complex plane.
+- `Γ::Boundary`: boundary whose parametrization is being inverted.
+- `maxiter`: maximum Halley iterations (default `20`).
+- `tol`: convergence tolerance on `|γ(t) - ζ|` (default `1e-15`).
+- `verbose`: print iteration diagnostics if `true` (default `false`).
+
+# Returns
+- `(t, isconverged)`: the preimage and whether `|γ(t) - ζ| < tol` was reached.
+"""
 function _find_preimage(ζ, Γ::Boundary; maxiter=20, tol=1e-15, verbose=false)
 
-    # Truncate to cap Clenshaw amplification outside [-1,1].
-    # T_k(t) ~ cosh(k·cosh⁻¹|t|); 32 terms limits amplification to ~87 at |t|=1.013.
     Nroots = min(length(Γ), 32)
     γ̂   = _cheb_coeffs(Γ.γ;   Nmax=Nroots)
     γ̂ₜ  = _cheb_coeffs(Γ.γt;  Nmax=Nroots)
     γ̂ₜₜ = _cheb_coeffs(Γ.γtt; Nmax=Nroots)
 
-    # Affine starting guess: inverse of chord map s(τ) = (τ - τ₀)/s₀ (Klinteberg 2020, eq. 30).
     τ₀ = (Γ.γ[end] + Γ.γ[1]) / 2
     s₀ = (Γ.γ[end] - Γ.γ[1]) / 2
     t  = (ζ - τ₀) / s₀
@@ -50,7 +67,17 @@ function _find_preimage(ζ, Γ::Boundary; maxiter=20, tol=1e-15, verbose=false)
 
 end
 
-"Outer Joukowski map Φ(z) = z + √(z²-1) choosing the branch with |Φ| ≥ 1."
+"""
+    _Φ(z)
+
+Outer Joukowski map `Φ(z) = z + √(z²-1)`, choosing the branch with `|Φ| ≥ 1`.
+
+# Arguments
+- `z`: (possibly complex) evaluation point.
+
+# Returns
+- `Φ(z)` on the outer branch.
+"""
 function _Φ(z)
     s  = sqrt(z - 1) * sqrt(z + 1)   # avoids cancellation vs sqrt(z^2-1)
     w1 = z + s
@@ -59,11 +86,23 @@ function _Φ(z)
 end
 
 """
-Close-evaluation of the single-layer potential via singularity swap (af Klinteberg 2020).
+    𝒱_close(ζ_tgt, σ, Γ; t_tgt=nothing)
 
-Splits log|γ(t)-ζ| = log|Q(t)/(t-t₀)| + log|t-t₀| where t₀ = γ⁻¹(ζ).
-The first part is smooth → direct Gauss-Chebyshev.
-The second part → Chebyshev expansion of g = |γ'|σ, evaluated exactly via Iₖ(t₀,k).
+Close evaluation of the single-layer potential via singularity swap (af Klinteberg 2020).
+
+Splits `log|γ(t)-ζ| = log|Q(t)/(t-t₀)| + log|t-t₀|` where `t₀ = γ⁻¹(ζ)`. The first part
+is smooth and evaluated by direct Gauss-Chebyshev quadrature; the second part is the
+Chebyshev expansion of `g = |γ'|σ`, evaluated exactly via `Iₖ(t₀,k)`.
+
+# Arguments
+- `ζ_tgt`: target point, close to or on `Γ`.
+- `σ`: density sampled at the quadrature nodes of `Γ`.
+- `Γ::Boundary`: source boundary.
+- `t_tgt`: precomputed preimage of `ζ_tgt` under `Γ.γ`, from [`_find_preimage`](@ref)
+  (computed internally if `nothing`).
+
+# Returns
+- The single-layer potential at `ζ_tgt`.
 """
 function 𝒱_close(ζ_tgt, σ, Γ::Boundary; t_tgt=nothing)
 
@@ -84,15 +123,27 @@ function 𝒱_close(ζ_tgt, σ, Γ::Boundary; t_tgt=nothing)
 end
 
 """
-Close-evaluation of the adjoint double-layer potential via singularity swap.
+    K′_close(ζ_tgt, n̂_tgt, σ, Γ; t_tgt=nothing)
 
-Uses the Chebyshev-Cauchy identity (af Klinteberg 2020, image formula):
-  ∫₋₁¹ Tₖ(t)/(z-t) dt/√(1-t²) = π/√(z²-1) · (z - √(z²-1))^k
+Close evaluation of the adjoint double-layer potential via singularity swap.
 
-Writes the kernel as Re(n̂/(ζ-γ(t))) and introduces the preimage τ = γ⁻¹(ζ):
-  ∫ σ|γ'|/(ζ-γ) dt/√(1-t²) = ∫ f(t)/(τ-t) dt/√(1-t²)
-where f(t) = σ(t)|γ'(t)|(τ-t)/(ζ-γ(t)) is smooth (removable singularity at t=τ).
-Chebyshev-expand f and apply the identity exactly.
+Uses the Chebyshev-Cauchy identity (af Klinteberg 2020, image formula)
+`∫₋₁¹ Tₖ(t)/(z-t) dt/√(1-t²) = π/√(z²-1) · (z - √(z²-1))^k`.
+Writes the kernel as `Re(n̂/(ζ-γ(t)))` and introduces the preimage `τ = γ⁻¹(ζ)` so that
+`∫ σ|γ'|/(ζ-γ) dt/√(1-t²) = ∫ f(t)/(τ-t) dt/√(1-t²)`, where
+`f(t) = σ(t)|γ'(t)|(τ-t)/(ζ-γ(t))` is smooth (removable singularity at `t=τ`).
+Chebyshev-expands `f` and applies the identity exactly.
+
+# Arguments
+- `ζ_tgt`: target point, close to or on `Γ`.
+- `n̂_tgt`: unit normal at the target, used to project the (vector) kernel onto a scalar.
+- `σ`: density sampled at the quadrature nodes of `Γ`.
+- `Γ::Boundary`: source boundary.
+- `t_tgt`: precomputed preimage of `ζ_tgt` under `Γ.γ`, from [`_find_preimage`](@ref)
+  (computed internally if `nothing`).
+
+# Returns
+- The adjoint double-layer potential at `ζ_tgt`.
 """
 function K′_close(ζ_tgt, n̂_tgt, σ, Γ::Boundary; t_tgt=nothing)
 

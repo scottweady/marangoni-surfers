@@ -1,9 +1,41 @@
 
+"""
+    _boundary_polygon(Γ_D, Γ_N)
+
+Merge a particle's Dirichlet and Neumann arc boundaries into a single closed polygon,
+ordered by arc parameter.
+
+# Arguments
+- `Γ_D::Boundary`: Dirichlet arc boundary.
+- `Γ_N::Boundary`: Neumann arc boundary.
+
+# Returns
+- `(x, y)`: real and imaginary coordinates of the merged, arc-parameter-sorted polygon.
+"""
 function _boundary_polygon(Γ_D::Boundary, Γ_N::Boundary)
     pts = vcat(Γ_N.γ, Γ_D.γ)[sortperm(vcat(Γ_N.s, Γ_D.s))]
     return real.(pts), imag.(pts)
 end
 
+"""
+    plot_concentration(xcm, σ, ϕinf, Γ; pad=4.0, Nplt=150, title="")
+
+Heatmap of the surfactant concentration field around a collection of particles, with
+each particle boundary drawn as a filled white polygon.
+
+# Arguments
+- `xcm`: complex particle centers, used to set the plot extent.
+- `σ`: layer densities, ordered `[Γ_D₁, Γ_N₁, Γ_D₂, Γ_N₂, ...]` (as returned by
+  [`surfactant_solve`](@ref)/[`marangoni_solve`](@ref)).
+- `ϕinf`: far-field concentration constant.
+- `Γ`: placed boundaries, ordered `[Γ_D₁, Γ_N₁, Γ_D₂, Γ_N₂, ...]`.
+- `pad`: margin added around the particle centers when framing the plot (default `4.0`).
+- `Nplt`: number of grid points per axis (default `150`).
+- `title`: plot title (default `""`).
+
+# Returns
+- The `Plots.jl` plot object.
+"""
 function plot_concentration(xcm, σ, ϕinf, Γ; pad=4.0, Nplt=150, title="")
 
     Nparticles = length(xcm)

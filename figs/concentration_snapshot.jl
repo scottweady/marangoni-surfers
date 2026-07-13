@@ -30,8 +30,8 @@ Ns = 128
 γss(s) = -a*cos(s) - im*b*sin(s)
 
 Ω   = ellipse(a, b, M)
-Γ_D = arc(γ, γs, γss, Ns; dom=[α_arc, 2π - α_arc])
-Γ_N = arc(γ, γs, γss, Ns; dom=[-α_arc, α_arc])
+Γ_D = openarc(γ, γs, γss, Ns; dom=[α_arc, 2π - α_arc])
+Γ_N = openarc(γ, γs, γss, Ns; dom=[-α_arc, α_arc])
 
 # ── Load snapshot from trajectory dat file ─────────────────────────────────────
 

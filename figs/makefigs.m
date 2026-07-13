@@ -8,7 +8,7 @@ P = palette();   % shared color palette (cmocean 'tempo')
 outDir  = fullfile(figsDir, 'output');
 if ~exist(outDir, 'dir'), mkdir(outDir); end
 
-scripts = { 'fig_pair_prolate', 'fig_pair_disk', 'fig_multipole', 'fig_center_speed', 'fig_expansion', 'fig_pair_oblate' };
+scripts = {'fig_multipole', 'fig_pair_fields_parallel', 'fig_pair_parallel', 'fig_pair_disk' 'fig_pair_fields_antiparallel', 'fig_pair_oblate', 'fig_center_speed', 'fig_expansion'};
 
 for k = 1:numel(scripts)
     name = scripts{k};

@@ -14,8 +14,8 @@ g(θ)  = -cos(θ)
 γ(s)   =  a*cos(s) + im*b*sin(s)
 γs(s)  = -a*sin(s) + im*b*cos(s)
 γss(s) = -a*cos(s) - im*b*sin(s)
-Γ_D = arc(γ, γs, γss, Ns; dom=[α, 2π-α])
-Γ_N = arc(γ, γs, γss, Ns; dom=[-α, α])
+Γ_D = openarc(γ, γs, γss, Ns; dom=[α, 2π-α])
+Γ_N = openarc(γ, γs, γss, Ns; dom=[-α, α])
 
 # ── Run ───────────────────────────────────────────────────────────────────────
 

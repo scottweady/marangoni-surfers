@@ -1,5 +1,19 @@
 
-# Workhorse: ∑ⱼ kernel(ζ - γⱼ) σⱼ |γ′ⱼ| wⱼ for scalar or array targets.
+"""
+    _smooth_evaluation(ζ, σ, kernel, Γ)
+
+Workhorse quadrature sum `∑ⱼ kernel(ζ - γⱼ) σⱼ |γ′ⱼ| wⱼ` for a smooth kernel, valid for
+`ζ` off `Γ`.
+
+# Arguments
+- `ζ`: target point(s), scalar or array.
+- `σ`: density sampled at the quadrature nodes of `Γ`.
+- `kernel`: function of the displacement `ζ - γⱼ` giving the kernel value.
+- `Γ::Boundary`: source boundary.
+
+# Returns
+- The potential at `ζ`, matching its shape (scalar if `ζ` is a scalar).
+"""
 function _smooth_evaluation(ζ::Number, σ, kernel, Γ::Boundary)
     δz = ζ .- Γ.γ
     return sum(kernel.(δz) .* σ .* Γ.dΓ)
@@ -12,18 +26,55 @@ function _smooth_evaluation(ζ, σ, kernel, Γ::Boundary)
     return reshape(sum(A, dims=2), shp)
 end
 
-"Laplace single-layer potential: 𝒱(ζ) = -1/(2π) ∫_Γ log|ζ-γ'| σ ds'."
+"""
+    𝒱(ζ, σ, Γ)
+
+Laplace single-layer potential `𝒱(ζ) = -1/(2π) ∫_Γ log|ζ-γ'| σ ds'`.
+
+# Arguments
+- `ζ`: target point(s), scalar or array.
+- `σ`: density sampled at the quadrature nodes of `Γ`.
+- `Γ::Boundary`: source boundary.
+
+# Returns
+- The potential at `ζ`.
+"""
 function 𝒱(ζ, σ, Γ::Boundary)
     return _smooth_evaluation(ζ, σ, r -> -(1/(2π)) * log(abs(r)), Γ)
 end
 
-"Boundary-to-boundary single-layer: evaluate 𝒱 at the nodes of Γ_tgt."
+"""
+    𝒱(Γ_tgt, σ, Γ_src)
+
+Boundary-to-boundary single-layer potential: evaluate [`𝒱`](@ref) at the nodes of `Γ_tgt`.
+
+# Arguments
+- `Γ_tgt::Boundary`: target boundary.
+- `σ`: density sampled at the quadrature nodes of `Γ_src`.
+- `Γ_src::Boundary`: source boundary.
+
+# Returns
+- Potential values at the nodes of `Γ_tgt`.
+"""
 function 𝒱(Γ_tgt::Boundary, σ, Γ_src::Boundary)
     return 𝒱(Γ_tgt.γ, σ, Γ_src)
 end
 
 
-"Laplace double-layer potential: 𝒦(ζ) = 1/(2π) ∫_Γ n̂(y)·(ζ-y)/|ζ-y|² μ(y) ds(y).  Valid for ζ off Γ."
+"""
+    𝒦(ζ, μ, Γ)
+
+Laplace double-layer potential `𝒦(ζ) = 1/(2π) ∫_Γ n̂(y)·(ζ-y)/|ζ-y|² μ(y) ds(y)`, valid
+for `ζ` off `Γ`.
+
+# Arguments
+- `ζ`: target point(s), scalar or array.
+- `μ`: density sampled at the quadrature nodes of `Γ`.
+- `Γ::Boundary`: source boundary.
+
+# Returns
+- The potential at `ζ`.
+"""
 function 𝒦(ζ::Number, μ, Γ::Boundary)
     n̂ = (imag.(Γ.γt) .- im .* real.(Γ.γt)) ./ abs.(Γ.γt)
     r  = ζ .- Γ.γ
@@ -38,18 +89,57 @@ function 𝒦(ζ, μ, Γ::Boundary)
     return reshape((1/(2π)) * sum(A, dims=2), shp)
 end
 
-"Helmholtz single-layer potential: ℋ(ζ) = 1/(2π) ∫_Γ K₀(k|ζ-γ′|) τ ds′.  Valid for ζ off Γ."
+"""
+    ℋ(ζ, τ, Γ; k=1.0)
+
+Helmholtz single-layer potential `ℋ(ζ) = 1/(2π) ∫_Γ K₀(k|ζ-γ′|) τ ds′`, valid for `ζ`
+off `Γ`.
+
+# Arguments
+- `ζ`: target point(s), scalar or array.
+- `τ`: density sampled at the quadrature nodes of `Γ`.
+- `Γ::Boundary`: source boundary.
+- `k`: Helmholtz wavenumber (default `1.0`).
+
+# Returns
+- The potential at `ζ`.
+"""
 function ℋ(ζ, τ, Γ::Boundary; k=1.0)
     return _smooth_evaluation(ζ, τ, r -> besselk(0, k*abs(r)) / (2π), Γ)
 end
 
-"Biharmonic single-layer potential: ℬ(ζ) = 1/(4π) ∫_Γ |ζ-γ'| σ ds'."
+"""
+    ℬ(ζ, σ, Γ)
+
+Biharmonic single-layer potential `ℬ(ζ) = 1/(4π) ∫_Γ |ζ-γ'| σ ds'`.
+
+# Arguments
+- `ζ`: target point(s), scalar or array.
+- `σ`: density sampled at the quadrature nodes of `Γ`.
+- `Γ::Boundary`: source boundary.
+
+# Returns
+- The potential at `ζ`.
+"""
 function ℬ(ζ, σ, Γ::Boundary)
     return _smooth_evaluation(ζ, σ, r -> abs(r)/(4π), Γ)
 end
 
 
-"Gradient of Laplace single-layer: ∇𝒱(ζ) = -1/(2π) ∫_Γ (ζ-γ′)/|ζ-γ′|² σ ds′.  Valid for ζ off Γ."
+"""
+    ∇𝒱(ζ, σ, Γ)
+
+Gradient of the Laplace single-layer potential
+`∇𝒱(ζ) = -1/(2π) ∫_Γ (ζ-γ′)/|ζ-γ′|² σ ds′`, valid for `ζ` off `Γ`.
+
+# Arguments
+- `ζ`: target point(s), scalar or array.
+- `σ`: density sampled at the quadrature nodes of `Γ`.
+- `Γ::Boundary`: source boundary.
+
+# Returns
+- `(Vx, Vy)`: gradient components matching the shape of `ζ`.
+"""
 function ∇𝒱(ζ, σ, Γ::Boundary)
     Vx = _smooth_evaluation(ζ, σ, r -> -real(r) / (2π * abs2(r)), Γ)
     Vy = _smooth_evaluation(ζ, σ, r -> -imag(r) / (2π * abs2(r)), Γ)
@@ -57,9 +147,18 @@ function ∇𝒱(ζ, σ, Γ::Boundary)
 end
 
 """
-Gradient of Laplace double-layer: ∇𝒦(ζ) = 1/(2π) ∫_Γ (I/|r|² - 2rr̂/|r|⁴)·n̂(y) μ(y) ds(y),  r = ζ-y.
+    ∇𝒦(ζ, μ, Γ)
 
-Returns (Kx, Ky) arrays matching the shape of ζ.  Valid for ζ off Γ.
+Gradient of the Laplace double-layer potential
+`∇𝒦(ζ) = 1/(2π) ∫_Γ (I/|r|² - 2rr̂/|r|⁴)·n̂(y) μ(y) ds(y)`, `r = ζ-y`, valid for `ζ` off `Γ`.
+
+# Arguments
+- `ζ`: target point(s), scalar or array.
+- `μ`: density sampled at the quadrature nodes of `Γ`.
+- `Γ::Boundary`: source boundary.
+
+# Returns
+- `(Kx, Ky)`: gradient components matching the shape of `ζ`.
 """
 function ∇𝒦(ζ::Number, μ, Γ::Boundary)
     n̂     = (imag.(Γ.γt) .- im .* real.(Γ.γt)) ./ abs.(Γ.γt)
@@ -84,7 +183,21 @@ function ∇𝒦(ζ, μ, Γ::Boundary)
     return Kx, Ky
 end
 
-"Gradient of Helmholtz single-layer: ∇ℋ(ζ) = -k/(2π) ∫_Γ K₁(k|ζ-γ′|)/|ζ-γ′| (ζ-γ′) τ ds′.  Valid for ζ off Γ."
+"""
+    ∇ℋ(ζ, τ, Γ; k=1.0)
+
+Gradient of the Helmholtz single-layer potential
+`∇ℋ(ζ) = -k/(2π) ∫_Γ K₁(k|ζ-γ′|)/|ζ-γ′| (ζ-γ′) τ ds′`, valid for `ζ` off `Γ`.
+
+# Arguments
+- `ζ`: target point(s), scalar or array.
+- `τ`: density sampled at the quadrature nodes of `Γ`.
+- `Γ::Boundary`: source boundary.
+- `k`: Helmholtz wavenumber (default `1.0`).
+
+# Returns
+- `(Hx, Hy)`: gradient components matching the shape of `ζ`.
+"""
 function ∇ℋ(ζ, τ, Γ::Boundary; k=1.0)
     function kernel_x(r)
         ρ = abs(r)
@@ -103,12 +216,23 @@ end
 
 
 """
-Gradient of the biharmonic potential: ∇ℬ(ζ) = 1/(4π) ∫_Γ (ζ-γ')/|ζ-γ'| σ ds'.
+    ∇ℬ(ζ, σs, Γs; eps=1e-6)
 
-Accepts a single Boundary or a Vector{Boundary}.  Dispatches to direct
-`_smooth_evaluation` when `length(ζ) * total_sources ≤ 4000`, otherwise
-uses three FMM3D calls.  Returns (bx, by) arrays matching the shape of ζ.
-Valid when ζ is well-separated from Γ; use `∇ℬ_arc` near open arcs.
+Gradient of the biharmonic potential `∇ℬ(ζ) = 1/(4π) ∫_Γ (ζ-γ')/|ζ-γ'| σ ds'`, summed
+over a collection of source boundaries.
+
+Dispatches to direct [`_smooth_evaluation`](@ref) when `length(ζ) * total_sources ≤
+10000`, otherwise uses three `lfmm3d` calls. Valid when `ζ` is well-separated from every
+`Γ ∈ Γs`; use a dedicated close-evaluation routine near open arcs.
+
+# Arguments
+- `ζ`: target point(s), scalar or array.
+- `σs::Vector`: densities, one per boundary in `Γs`.
+- `Γs::Vector{Boundary}`: source boundaries.
+- `eps`: FMM requested accuracy (default `1e-6`).
+
+# Returns
+- `(bx, by)`: gradient components matching the shape of `ζ`.
 """
 function ∇ℬ(ζ, σs, Γs::Vector{Boundary}; eps=1e-6)
 
@@ -141,6 +265,20 @@ function ∇ℬ(ζ, σs, Γs::Vector{Boundary}; eps=1e-6)
     return bx, by
 end
 
+"""
+    ∇ℬ(ζ, σ, Γ; eps=1e-6)
+
+Single-boundary convenience wrapper for [`∇ℬ`](@ref).
+
+# Arguments
+- `ζ`: target point(s), scalar or array.
+- `σ`: density sampled at the quadrature nodes of `Γ`.
+- `Γ::Boundary`: source boundary.
+- `eps`: FMM requested accuracy (default `1e-6`).
+
+# Returns
+- `(bx, by)`: gradient components matching the shape of `ζ`.
+"""
 function ∇ℬ(ζ, σ, Γ::Boundary; eps=1e-6)
     return ∇ℬ(ζ, [σ], [Γ]; eps=eps)
 end

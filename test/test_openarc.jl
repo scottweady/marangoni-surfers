@@ -12,7 +12,7 @@ let
     ζ = 3.0 + 1.0im
 
     function solve_and_eval(N)
-        Γ = arc(γ, γs, γss, N; dom=[0.0, π])
+        Γ = openarc(γ, γs, γss, N; dom=[0.0, π])
         g = real.(Γ.γ)
         σs, ϕ∞ = laplace_solve([Γ], [:D], [g])
         return 𝒱(ζ, σs[1], Γ) + ϕ∞

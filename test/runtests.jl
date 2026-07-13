@@ -1,4 +1,5 @@
 
+include("../src/bie/bie.jl")
 
 function printerror(N, err)
     color = if err < 1e-12
@@ -13,14 +14,18 @@ end
 
 Nspan = 20:20:100
 
-# Smooth solvers
+# Closed-curve solvers
 include("test_circle.jl")
-include("test_curve.jl")
-include("test_hypersingular.jl")
+include("test_closedcurve.jl")
 
 # Open-arc solvers
 include("test_segment.jl")
-include("test_arc.jl")
+include("test_openarc.jl")
 
 # Mixed boundary condition solvers
-include("test_mixed_arc.jl")
+include("test_mixed_openarc.jl")
+
+# Marangoni solvers
+include("../src/marangoni.jl")
+include("test_surfer.jl")
+include("test_ellipse_surfer.jl")

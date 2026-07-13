@@ -2,8 +2,8 @@
 # 2D boundary integral equation tools: quadrature, boundary representation,
 # kernel matrix assembly, layer potentials, and close evaluation.
 
-using FFTW
 using FastGaussQuadrature
+using FFTW
 using FMM3D
 using LinearAlgebra
 using SpecialFunctions

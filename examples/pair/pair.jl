@@ -19,7 +19,8 @@ include("../../src/marangoni.jl")
 α_arc = π/2   # arc angle (Dirichlet domain)
 g(θ) = -cos(θ)  # surfactant distribution
 
-aspect_ratios = [2.0,3.0,4.0]
+# aspan = [1.0/2.0, 1.0/sqrt(2.0), 1.0, sqrt(2.0), 2.0]
+aspan = [1.0/4.0, 1.0/2.0, 1.0, 2.0, 4.0]
 Δx_range = [16.0]
 
 # ── Discretization ─────────────────────────────────────────────────────────
@@ -27,15 +28,16 @@ Ns = 128      # arc quadrature points
 M  = 16       # spectral degree for ellipse
 
 # Time integration parameters
-t_max = 50000  # max simulation time
+t_max = 1000  # max simulation time
 dt_max = 10.0   # max time step
 dt_min = 1e-3    # min time step
 cfl_scale = 0.5  # safety factor in U*dt < d using boundary-to-boundary gap d
 stop_dist = 1e-2  # stop when nearest boundary-to-boundary distance is below this
+max_separation = Inf  # stop when center-to-center distance exceeds this
 
 # ── Main loop: aspect ratio and separation ───────────────────────────────────
 
-for a in aspect_ratios
+for a in aspan
 
     b = 1.0 / a  # fixed area: πab = π
     
@@ -47,8 +49,8 @@ for a in aspect_ratios
     γss(s) = -a*cos(s) - im*b*sin(s)
     
     Ω = ellipse(a, b, M)
-    Γ_D = arc(γ, γs, γss, Ns; dom=[α_arc, 2π - α_arc])
-    Γ_N = arc(γ, γs, γss, Ns; dom=[-α_arc, α_arc])
+    Γ_D = openarc(γ, γs, γss, Ns; dom=[α_arc, 2π - α_arc])
+    Γ_N = openarc(γ, γs, γss, Ns; dom=[-α_arc, α_arc])
 
     # Boundary points in body frame for nearest-distance checks
     z_boundary_body = vcat(Γ_D.γ, Γ_N.γ)
@@ -60,13 +62,24 @@ for a in aspect_ratios
         # ── Initial conditions ───────────────────────────────────────────────
         
         xcm  = [-Δx/2 + 0im, Δx/2 + 0im]   # center of mass positions
-        θcm  = [π/2, π/2]
+        θcm  = [-π/2, π/2]
         U_all = Vector{Vector{Float64}}(undef, 2)
         
         # Storage for trajectory
         times = Float64[]
         trajectory = Tuple{Float64, Float64, Float64, Float64, Float64, Float64, Float64}[]
-        
+
+        # Record initial condition (t=0)
+        z_boundary_1_0 = exp(im * θcm[1]) .* z_boundary_body .+ xcm[1]
+        z_boundary_2_0 = exp(im * θcm[2]) .* z_boundary_body .+ xcm[2]
+        dist_0 = sqrt(minimum(abs2.(z_boundary_1_0 .- permutedims(z_boundary_2_0))))
+        push!(times, 0.0)
+        push!(trajectory, (
+            real(xcm[1]), imag(xcm[1]), θcm[1],
+            real(xcm[2]), imag(xcm[2]), θcm[2],
+            dist_0
+        ))
+
         # Setup file for writing
         out_dir = joinpath(@__DIR__, "output")
         mkpath(out_dir)
@@ -78,6 +91,7 @@ for a in aspect_ratios
         
         t = 0.0
         step = 0
+        last_written = 0
         max_steps = Int(ceil(t_max / dt_max)) + 1000
         
         plt = scatter([0.0], [0.0])
@@ -102,6 +116,11 @@ for a in aspect_ratios
 
             if dist < stop_dist
                 @printf("    Boundary-gap threshold reached (gap=%.6e < %.1e) at t = %.6f\n", dist, stop_dist, t)
+                break
+            end
+
+            if abs(xcm[1] - xcm[2]) > max_separation
+                @printf("    Max separation threshold reached (sep=%.6e > %.1f) at t = %.6f\n", abs(xcm[1] - xcm[2]), max_separation, t)
                 break
             end
 
@@ -164,14 +183,14 @@ for a in aspect_ratios
             
             # Write to file every 10 steps
             if mod(step, 10) == 0
-                # Write last 10 lines to file
-                idx_start = max(1, length(times) - 9)
-                for i in idx_start:length(times)
+                # Write lines since the last write
+                for i in last_written+1:length(times)
                     t_val = times[i]
                     x1, y1, θ1, x2, y2, θ2, dist_val = trajectory[i]
                     @printf(io, "%.6e  %.6e  %.6e  %.6e  %.6e  %.6e  %.6e  %.6e\n",
                             t_val, x1, y1, θ1, x2, y2, θ2, dist_val)
                 end
+                last_written = length(times)
                 flush(io)
             end
 
@@ -180,11 +199,15 @@ for a in aspect_ratios
                 break
             end
 
+            if abs(xcm[1] - xcm[2]) > max_separation
+                @printf("    Max separation threshold reached (sep=%.6e > %.1f) at t = %.6f\n", abs(xcm[1] - xcm[2]), max_separation, t)
+                break
+            end
+
         end
         
         # Write any remaining steps to file
-        idx_start = div(step, 10) * 10 + 1
-        for i in idx_start:length(times)
+        for i in last_written+1:length(times)
             t_val = times[i]
             x1, y1, θ1, x2, y2, θ2, dist_val = trajectory[i]
             @printf(io, "%.6e  %.6e  %.6e  %.6e  %.6e  %.6e  %.6e  %.6e\n",

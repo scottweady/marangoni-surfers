@@ -28,8 +28,8 @@ g(s)  = -cos(s)
 γs(s)  = -a*sin(s) + im*b*cos(s)
 γss(s) = -a*cos(s) - im*b*sin(s)
 Ω   = ellipse(a, b, M)
-Γ_D = arc(γ, γs, γss, Ns; dom=[α_arc, 2π - α_arc])
-Γ_N = arc(γ, γs, γss, Ns; dom=[-α_arc, α_arc])
+Γ_D = openarc(γ, γs, γss, Ns; dom=[α_arc, 2π - α_arc])
+Γ_N = openarc(γ, γs, γss, Ns; dom=[-α_arc, α_arc])
 
 # ── Single-particle multipoles (body frame, θ = 0) ────────────────────────────
 
@@ -76,15 +76,18 @@ end
 
 
 # ── Max error over circle of radius r ────────────────────────────────────────
-# Columns: r  max_err_th0  max_err_thpi2
 
-rvals  = d * 10.0 .^ range(0, 4, length=40)
-θcm_configs = [[0.0, 0.0], [π/2, π/2]]
-Nθ_circle   = 64   # angular samples on each circle
+rvals         = [8.0, 16.0, 32.0, 64.0, 128.0, 256.0]
+θcm_configs   = [[0.0, 0.0], [π/2, π/2]]
+config_labels = ["θ=0", "θ=π/2"]
+Nθ_circle     = 64   # angular samples on each circle
 
 max_errors = zeros(length(rvals), 2)
 
 for (icfg, θcm_cfg) in enumerate(θcm_configs)
+
+    @printf("\n%s\n", config_labels[icfg])
+    @printf("%-10s  %-12s\n", "r", "max err")
 
     # Re-solve for this orientation
     U_cfg, σ_cfg, Γ_cfg, _ = marangoni_solve(xcm, θcm_cfg, Ω, Γ_D, Γ_N, g)
@@ -143,16 +146,21 @@ for (icfg, θcm_cfg) in enumerate(θcm_configs)
         end
 
         max_errors[ir, icfg] = err_max
+        @printf("%-10.2f  %-12.4e\n", r, err_max)
     end
 end
 
 all_errors = max_errors
 
-open(joinpath(@__DIR__, "multipole_error_2p.dat"), "w") do io
+out_dir = joinpath(@__DIR__, "output")
+mkpath(out_dir)
+
+open(joinpath(out_dir, "multipole_2p.dat"), "w") do io
+    @printf(io, "# r   max_err_th0   max_err_thpi2\n")
     for ir in eachindex(rvals)
         @printf(io, "%.6f  %.10e  %.10e\n",
                 rvals[ir], all_errors[ir, 1], all_errors[ir, 2])
     end
 end
 
-println("Wrote multipole_error_2p.dat")
+println("\nWrote output/multipole_2p.dat")

@@ -17,8 +17,8 @@ d    = 20.0   # center-to-center spacing between adjacent particles
 γss(s) = -a*cos(s) - im*b*sin(s)
 
 Ω   = ellipse(a, b, M)
-Γ_D = arc(γ, γs, γss, Ns; dom=[α, 2π-α])
-Γ_N = arc(γ, γs, γss, Ns; dom=[-α, α])
+Γ_D = openarc(γ, γs, γss, Ns; dom=[α, 2π-α])
+Γ_N = openarc(γ, γs, γss, Ns; dom=[-α, α])
 
 # ── Compute single-particle speed for normalization ───────────────────────────
 

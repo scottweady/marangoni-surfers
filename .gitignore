@@ -1,11 +1,12 @@
 
 archive
 CLAUDE.md
+STYLE.md
 local
 manuscript
 movies
 notes
-stokes
+output
 
 *.ai
 *.dat
@@ -13,3 +14,6 @@ stokes
 *.pdf
 *.png
 
+.claude
+.vscode
+.DS_Store

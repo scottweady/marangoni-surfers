@@ -12,8 +12,8 @@ let
     γss(s) = -a * cos.(s) - im * b * sin.(s)
     Ω_ref = ellipse(a, b, M)
     for Ns in Nspan
-        Γ_D = arc(γ, γs, γss, Ns; dom=[α, 2π-α])
-        Γ_N = arc(γ, γs, γss, Ns; dom=[-α, α])
+        Γ_D = openarc(γ, γs, γss, Ns; dom=[α, 2π-α])
+        Γ_N = openarc(γ, γs, γss, Ns; dom=[-α, α])
         U, _ = marangoni_solve(Ω_ref, Γ_D, Γ_N, g)
         err = abs(U[1] - Uexact)
         printerror(Ns, err)

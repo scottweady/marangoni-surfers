@@ -1,6 +1,6 @@
 
 # ── Curve (ellipse) Dirichlet test ───────────────────────────────────────────
-# Solve ∫_Γ G(ζ,γ') σ(γ') ds' + ϕ∞ = g on an ellipse using the `curve` constructor.
+# Solve ∫_Γ G(ζ,γ') σ(γ') ds' + ϕ∞ = g on an ellipse using the `closedcurve` constructor.
 # Exact solution: u(x,y) = x  (harmonic everywhere).
 # After solving, evaluate 𝒱(ζ, σ, Γ) + ϕ∞ at interior points and compare to Re(ζ).
 println("\nCurve (star γ=(1+a·cos5s)eⁱˢ, a=0.3): laplace_solve Dirichlet solve, u=x")
@@ -15,7 +15,7 @@ let
 
     println("  interior potential")
     for N in Nspan
-        Γ = curve(γ, γs, γss, N)
+        Γ = closedcurve(γ, γs, γss, N)
         g = real.(Γ.γ)
         σs, ϕ∞ = laplace_solve([Γ], [:D], [g])
         σ = σs[1]
@@ -28,7 +28,7 @@ let
     # Exact: ∂(Re ζ)/∂n = Re(outward normal) = Re(i γt/|γt|) = -Im(γt)/|γt|
     println("  boundary normal derivative")
     for N in Nspan
-        Γ = curve(γ, γs, γss, N)
+        Γ = closedcurve(γ, γs, γss, N)
         g = real.(Γ.γ)
         σs, _ = laplace_solve([Γ], [:D], [g])
         σ = σs[1]

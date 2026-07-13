@@ -1,0 +1,113 @@
+% fig_pair_fields.m — concentration + velocity fields for a pair of ellipses
+% across aspect ratio, at the θ=π/2 initial configuration (examples/pair/pair_fields.jl).
+
+close all;
+
+if orient == 1
+    dataDir = fullfile(fileparts(mfilename('fullpath')), '..', 'data', 'parallel');
+    th   = [pi/2, pi/2];
+else
+    dataDir = fullfile(fileparts(mfilename('fullpath')), '..', 'data', 'antiparallel');
+    th   = [-pi/2, pi/2];
+end
+
+P     = palette();
+col   = P.col;
+
+% aspan = [1.0/2.0, 1.0/sqrt(2.0), 1.0, sqrt(2.0), 2.0];
+aspan = [1.0/2.0, 1.0, 2.0];
+Delta = 8.0;
+alpha_arc = pi/2;
+Np    = numel(aspan);
+
+fig = journal_figure([6.75, 2.1], 2, 'tex');
+ax  = arrayfun(@(~) axes(fig), 1:Np);
+
+for k = 1:Np
+    a = aspan(k);  b = 1.0/a;
+    ax(k).FontSize = 20;
+    fname = sprintf('fields_a%.4f_b%.4f.dat', a, b);
+    fid   = fopen(fullfile(dataDir, fname));
+    hdr   = fgetl(fid);
+    Nx    = str2double(regexp(hdr, 'Nx=(\d+)', 'tokens', 'once'));
+    Ny    = str2double(regexp(hdr, 'Ny=(\d+)', 'tokens', 'once'));
+    xplt  = str2num(fgetl(fid));  %#ok<ST2NM>
+    yplt  = str2num(fgetl(fid));  %#ok<ST2NM>
+    phi   = fscanf(fid, '%f', [Nx, Ny])';
+    U     = fscanf(fid, '%f', [Nx, Ny])';
+    V     = fscanf(fid, '%f', [Nx, Ny])';
+    fclose(fid);
+
+    hold(ax(k), 'on'); box(ax(k), 'on');
+    set(ax(k), 'BoxStyle', 'full', 'LineWidth', 1.5);
+    imagesc(ax(k), xplt, yplt, phi);
+    ax(k).YDir = 'normal';
+    axis(ax(k), 'equal'); axis(ax(k), 'tight');
+    colormap(ax(k), cmocean('tempo'));
+    clim(ax(k), [0 1]);
+
+    ax(k).XLabel.String = '{\it x}';
+
+    if k == 1
+        ax(k).YLabel.String = '{\it y}';
+    else
+        ax(k).YTick = [];
+    end
+
+    % ax(k).XLim = 1.75 * [-Delta/2, Delta/2]; %ax(k).YLim = ax(k).XLim;
+    xcm  = [-Delta/2, Delta/2];
+    ycm  = [0, 0];
+    phi_e   = linspace(0, 2*pi, 200);
+    ex0     = a*cos(phi_e); ey0 = b*sin(phi_e);
+    phi_act = linspace(alpha_arc, 2*pi - alpha_arc, 200);
+    ex_act  = a*cos(phi_act); ey_act = b*sin(phi_act);
+    for j = 1:2
+        ct = cos(th(j)); st = sin(th(j));
+        patch(ax(k), ct*ex0 - st*ey0 + xcm(j), st*ex0 + ct*ey0 + ycm(j), ...
+              'w', 'FaceColor', 'w', 'EdgeColor', 'k', 'LineWidth', 1.5);
+        plot(ax(k), ct*ex_act - st*ey_act + xcm(j), st*ex_act + ct*ey_act + ycm(j), ...
+             '-', 'Color', col, 'LineWidth', 2);
+    end
+
+    before = ax(k).Children;
+    streamslice(ax(k), xplt, yplt, U, V, 2);
+    h = setdiff(ax(k).Children, before);
+    set(h, 'Color', 'w', 'LineWidth', 1);
+end
+
+cb = colorbar(ax(end), 'Location', 'eastoutside', 'Ticks', 0:0.5:1);
+cb.Title.String = '\phi';
+
+
+% ── Layout ────────────────────────────────────────────────────────────────────
+
+ml = 0.75; mr = 0.75; mb = 0.25; mt = 0.15; gap = 0.1;
+
+for k = 1:Np
+    ax(k).Units = 'inches';
+    ax(k).ActivePositionProperty = 'position';
+end
+
+figW = fig.PaperSize(1); figH = fig.PaperSize(2);
+panelW = (figW - ml - mr - (Np-1)*gap) / Np;
+panelH = figH - mb - mt;
+
+for k = 1:Np
+    ax(k).Position = [ml + (k-1)*(panelW+gap), mb, panelW, panelH];
+end
+
+cb.Units = 'inches';
+
+letters = 'abcde';
+for k = 1:Np
+    a = aspan(k); b = 1.0/a;
+    lbl = sprintf('\\it (%s) {\\it a/b} \\rm = %.2f', letters(k), a/b);
+    panel_label(lbl, ax(k), -0.2, -0.1);
+end
+
+function a = panel_label(str, ax, xOffset, yOffset)
+    a = annotation('textbox', 'String', str, 'FontName', 'Times', ...
+        'EdgeColor', 'none', 'FontSize', ax.FontSize, 'Units', 'inches');
+    a.Position(1) = ax.Position(1) + xOffset;
+    a.Position(2) = sum(ax.Position([2 4])) - a.Position(4) + yOffset;
+end

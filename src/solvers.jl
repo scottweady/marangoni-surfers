@@ -1,9 +1,32 @@
 
-using ProjectedSphericalHarmonics
+"""
+    integral(f, Ω)
 
+Domain integral `∫_Ω f dA = ∑ fᵢ dzᵢ`.
+
+# Arguments
+- `f`: field sampled at the quadrature nodes of `Ω`.
+- `Ω::Domain`: Stokes domain to integrate over.
+
+# Returns
+- The scalar value of the integral.
+"""
 integral(f, Ω::Domain) = sum(f .* Ω.dz)
 
-"Evaluate a domain field f at arc parameter values θ by tracing to the boundary and FFT-interpolating."
+"""
+    _boundary_eval(f, Ω, s)
+
+Evaluate a domain field `f` at arc parameter values `s` by tracing to the boundary and
+FFT-interpolating.
+
+# Arguments
+- `f`: field sampled at the quadrature nodes of `Ω`.
+- `Ω`: Stokes domain whose boundary `f` is traced to.
+- `s`: arc parameter values at which to evaluate the traced field.
+
+# Returns
+- The traced field values at `s`.
+"""
 function _boundary_eval(f, Ω, s)
     vals  = trace(f, Ω)
     N     = length(vals)
@@ -13,13 +36,24 @@ function _boundary_eval(f, Ω, s)
 end
 
 """
+    surfactant_solve(xcm, θcm, Γ_D, Γ_N, g)
+
 Solve the surfactant Laplace problem given reference arc boundaries.
 
-`Γ_D` and `Γ_N` are reference (body-frame) Dirichlet and Neumann arc boundaries.
-They are rigidly placed at each `(centers[k], orientations[k])` — the self-interaction
+`Γ_D` and `Γ_N` are reference (body-frame) Dirichlet and Neumann arc boundaries. They
+are rigidly placed at each `(centers[k], orientations[k])` — the self-interaction
 matrices `V`, `K′` are reused since the Laplace kernel is translation/rotation invariant.
-`g` is the Dirichlet BC as a function of arc parameter s.
-Returns `(densities, boundaries, ϕ∞)`.
+
+# Arguments
+- `xcm`: vector of complex particle centers.
+- `θcm`: vector of particle orientations, in radians.
+- `Γ_D::Boundary`: reference Dirichlet arc boundary.
+- `Γ_N::Boundary`: reference Neumann arc boundary.
+- `g`: Dirichlet boundary data, as a function of arc parameter `s`.
+
+# Returns
+- `(σ, ϕ∞, Γ)`: layer densities per placed boundary, the far-field constant, and the
+  vector of placed `Boundary`s (alternating `Γ_D`, `Γ_N` per particle).
 """
 function surfactant_solve(xcm, θcm, Γ_D::Boundary, Γ_N::Boundary, g)
 
@@ -41,12 +75,27 @@ function surfactant_solve(xcm, θcm, Γ_D::Boundary, Γ_N::Boundary, g)
 end
 
 """
-Solve for the translational velocity U and angular velocity ω of a single surfer.
+    marangoni_solve(xcm, θcm, Ω, Γ_D, Γ_N, g; tol=1e-6)
 
-`Ω` is the Stokes domain boundary, `Γ_D` and `Γ_N` are the Dirichlet and Neumann
-arc boundaries for the surfactant solve, and `g` is the Dirichlet BC as a function
-of arc parameter s.
-Returns `(U, σ, Γ, ϕ∞)`.
+Solve for the translational velocity `U` and angular velocity `ω` of a collection of
+Marangoni surfers via the mobility formulation.
+
+`Ω` is the Stokes domain boundary, `Γ_D` and `Γ_N` are the Dirichlet and Neumann arc
+boundaries for the surfactant solve, and `g` is the Dirichlet BC as a function of arc
+parameter `s`.
+
+# Arguments
+- `xcm`: vector of complex particle centers.
+- `θcm`: vector of particle orientations, in radians.
+- `Ω`: Stokes domain boundary (shared by all particles).
+- `Γ_D::Boundary`: reference Dirichlet arc boundary.
+- `Γ_N::Boundary`: reference Neumann arc boundary.
+- `g`: Dirichlet boundary data, as a function of arc parameter `s`.
+- `tol`: FMM/GMRES accuracy tolerance (default `1e-6`).
+
+# Returns
+- `(U, σ, Γ, ϕ∞)`: per-particle rigid-body velocities `U[i] = (ux, uy, ω)`, layer
+  densities, placed boundaries, and the far-field constant.
 """
 function marangoni_solve(xcm, θcm, Ω, Γ_D::Boundary, Γ_N::Boundary, g; tol=1e-6)
 
@@ -73,7 +122,21 @@ function marangoni_solve(xcm, θcm, Ω, Γ_D::Boundary, Γ_N::Boundary, g; tol=1
 
 end
 
-"Single-particle Marangoni solve via mobility formulation."
+"""
+    marangoni_solve(Ω, Γ_D, Γ_N, g)
+
+Single-particle Marangoni solve via the mobility formulation.
+
+# Arguments
+- `Ω`: Stokes domain boundary.
+- `Γ_D`: reference Dirichlet arc boundary.
+- `Γ_N`: reference Neumann arc boundary.
+- `g`: Dirichlet boundary data, as a function of arc parameter `s`.
+
+# Returns
+- `(U, σ, Γ, ϕ∞)`: rigid-body velocity `U = (ux, uy, ω)`, layer densities `(σ_D, σ_N)`,
+  placed boundaries, and the far-field constant.
+"""
 function marangoni_solve(Ω, Γ_D, Γ_N, g)
 
     σ, ϕinf, Γ = surfactant_solve([0.0im], [0.0], Γ_D, Γ_N, g)
@@ -97,9 +160,19 @@ function marangoni_solve(Ω, Γ_D, Γ_N, g)
 end
 
 """
+    marangoni_multipoles(Ω, Γ_D, Γ_N, g)
+
 Compute the Marangoni multipole moments for a single surfer.
 
-Returns a NamedTuple with fields `velocity`, `force_monopole`, `force_dipole`, `surf_monopole`, `surf_dipole`.
+# Arguments
+- `Ω`: Stokes domain boundary.
+- `Γ_D`: reference Dirichlet arc boundary.
+- `Γ_N`: reference Neumann arc boundary.
+- `g`: Dirichlet boundary data, as a function of arc parameter `s`.
+
+# Returns
+- `NamedTuple` with fields `velocity`, `force_monopole`, `force_dipole`,
+  `surf_monopole`, `surf_dipole`.
 """
 function marangoni_multipoles(Ω, Γ_D, Γ_N, g)
 

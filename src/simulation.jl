@@ -1,5 +1,42 @@
 
+"""
+    suspension_simulate(xcm0, θcm0, Ω, Γ_D, Γ_N, g;
+                        t_end=10.0, dt_min=1e-4, dt_max=10.0, safety=0.5,
+                        plot_every=10.0, plot_mode=:concentration,
+                        output_file="", plot_dir="", tol=1e-6)
 
+Time-integrate a suspension of Marangoni surfers with adaptive-step RK2.
+
+At each step, [`marangoni_solve`](@ref) gives the rigid-body velocity of every particle;
+positions and orientations are advanced with a two-stage Runge-Kutta scheme. The next
+time step is chosen from the minimum inter-particle gap and the maximum particle speed,
+scaled by `safety`, and clamped to `[dt_min, dt_max]`. Frames are written or displayed
+every `plot_every` time units, and per-frame particle configurations are appended to
+`frame_<label>.dat` files under `plot_dir`.
+
+# Arguments
+- `xcm0`: initial complex particle centers.
+- `θcm0`: initial particle orientations, in radians.
+- `Ω`: Stokes domain boundary (shared by all particles).
+- `Γ_D::Boundary`: reference Dirichlet arc boundary.
+- `Γ_N::Boundary`: reference Neumann arc boundary.
+- `g`: Dirichlet boundary data, as a function of arc parameter `s`.
+- `t_end`: total simulation time (default `10.0`).
+- `dt_min`, `dt_max`: bounds on the adaptive time step (default `1e-4`, `10.0`).
+- `safety`: safety factor applied to the gap/speed-based time-step estimate (default `0.5`).
+- `plot_every`: time interval between saved/displayed frames (default `10.0`).
+- `plot_mode`: `:concentration` plots the surfactant field; `:distance` plots the
+  two-particle separation instead (default `:concentration`).
+- `output_file`: if non-empty, append `(t, separation)` pairs here when `plot_mode ==
+  :distance` (default `""`, no file output).
+- `plot_dir`: if non-empty, save frames as PNGs and configuration `.dat` files here
+  instead of displaying them (default `""`).
+- `tol`: FMM/GMRES accuracy tolerance passed to [`marangoni_solve`](@ref) (default `1e-6`).
+
+# Returns
+- `(traj_xcm, traj_θcm, traj_t)`: the recorded trajectory of particle centers,
+  orientations, and times.
+"""
 function suspension_simulate(xcm0, θcm0, Ω, Γ_D::Boundary, Γ_N::Boundary, g;
                   t_end=10.0,
                   dt_min=1e-4, dt_max=10.0,

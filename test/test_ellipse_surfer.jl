@@ -25,14 +25,14 @@ let
                                         integral(real.(Γ[2].γ) .* σ[2], Γ[2]))
 
     Ns_ref = 1024
-    Γ_D_ref = arc(γ, γs, γss, Ns_ref; dom=[α, 2π-α])
-    Γ_N_ref = arc(γ, γs, γss, Ns_ref; dom=[-α, α])
+    Γ_D_ref = openarc(γ, γs, γss, Ns_ref; dom=[α, 2π-α])
+    Γ_N_ref = openarc(γ, γs, γss, Ns_ref; dom=[-α, α])
     _, σ_ref, Γ_ref, _ = marangoni_solve(Ω, Γ_D_ref, Γ_N_ref, g)
     Uref = semi_analytical(σ_ref, Γ_ref)
     
     for Ns in Nspan
-        Γ_D = arc(γ, γs, γss, Ns; dom=[α, 2π-α])
-        Γ_N = arc(γ, γs, γss, Ns; dom=[-α, α])
+        Γ_D = openarc(γ, γs, γss, Ns; dom=[α, 2π-α])
+        Γ_N = openarc(γ, γs, γss, Ns; dom=[-α, α])
         _, σ, Γ, _ = marangoni_solve(Ω, Γ_D, Γ_N, g)
         Uexact = semi_analytical(σ, Γ)
         err = abs(Uexact - Uref)
