@@ -20,16 +20,17 @@ include("../../src/marangoni.jl")
 g(θ) = -cos(θ)  # surfactant distribution
 
 # aspan = [1.0/2.0, 1.0/sqrt(2.0), 1.0, sqrt(2.0), 2.0]
-aspan = [1.0/4.0, 1.0/2.0, 1.0, 2.0, 4.0]
-Δx_range = [16.0]
+# aspan = [1.0/4.0, 1.0/2.0, 1.0, 2.0, 4.0]
+aspan = [11.0]
+Δx_range = [2.0]
 
 # ── Discretization ─────────────────────────────────────────────────────────
 Ns = 128      # arc quadrature points
-M  = 16       # spectral degree for ellipse
+M  = 32      # spectral degree for ellipse
 
 # Time integration parameters
-t_max = 1000  # max simulation time
-dt_max = 10.0   # max time step
+t_max = 1e8  # max simulation time
+dt_max = 1.0   # max time step
 dt_min = 1e-3    # min time step
 cfl_scale = 0.5  # safety factor in U*dt < d using boundary-to-boundary gap d
 stop_dist = 1e-2  # stop when nearest boundary-to-boundary distance is below this
@@ -54,7 +55,11 @@ for a in aspan
 
     # Boundary points in body frame for nearest-distance checks
     z_boundary_body = vcat(Γ_D.γ, Γ_N.γ)
-    
+
+    # Densely sampled body-frame curves for plotting: full outline and Dirichlet arc
+    z_outline_body = γ.(range(0, 2π; length=201))
+    z_arc_body     = γ.(range(α_arc, 2π - α_arc; length=101))
+
     for Δx in Δx_range
       
         @printf("  Δx = %.1f\n", Δx)
@@ -94,8 +99,6 @@ for a in aspan
         last_written = 0
         max_steps = Int(ceil(t_max / dt_max)) + 1000
         
-        plt = scatter([0.0], [0.0])
-
         while t < t_max && step < max_steps
             
             # Solve for velocities at current configuration
@@ -169,14 +172,15 @@ for a in aspan
                 dist
             ))
 
-            zN = xcm .+ a * exp.(im * θcm)
-            zS = xcm .- a * exp.(im * θcm)
-            zE = xcm .+ im * b * exp.(im * θcm)
-            zW = xcm .- im * b * exp.(im * θcm)
-            plt = scatter(real.(zN), imag.(zN), aspect_ratio=:equal)
-            scatter!(real.(zE), imag.(zE))
-            scatter!(real.(zW), imag.(zW))
-            scatter!(real.(zS), imag.(zS))
+            plt = plot(aspect_ratio=:equal, legend=false, xlabel="x", ylabel="y",
+                       title=@sprintf("t = %.2f", t))
+            for i in 1:2
+                z_outline = exp(im * θcm[i]) .* z_outline_body .+ xcm[i]
+                z_arc     = exp(im * θcm[i]) .* z_arc_body     .+ xcm[i]
+                plot!(plt, Shape(real.(z_outline), imag.(z_outline)),
+                      fillcolor=:lightgray, linecolor=:black, linewidth=1.5)
+                plot!(plt, real.(z_arc), imag.(z_arc), linecolor=:crimson, linewidth=3)
+            end
             display(plt)
 
             @printf("    step=%d  t=%.6f  dt=%.3e  gap=%.6e\n", step, t, dt, dist)

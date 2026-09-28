@@ -9,10 +9,12 @@ Time-integrate a suspension of Marangoni surfers with adaptive-step RK2.
 
 At each step, [`marangoni_solve`](@ref) gives the rigid-body velocity of every particle;
 positions and orientations are advanced with a two-stage Runge-Kutta scheme. The next
-time step is chosen from the minimum inter-particle gap and the maximum particle speed,
-scaled by `safety`, and clamped to `[dt_min, dt_max]`. Frames are written or displayed
-every `plot_every` time units, and per-frame particle configurations are appended to
-`frame_<label>.dat` files under `plot_dir`.
+time step is chosen so that no pair of particles closes its gap within the step: for each
+pair, the relative velocity is projected onto the line joining the particles, and (when
+approaching) the step is limited by gap / closing-speed, scaled by `safety` and clamped to
+`[dt_min, dt_max]`. Frames are displayed every
+`plot_every` time units, and per-frame particle configurations are appended to
+`frame_<label>.dat` files under `plot_dir`, if given.
 
 # Arguments
 - `xcm0`: initial complex particle centers.
@@ -29,9 +31,13 @@ every `plot_every` time units, and per-frame particle configurations are appende
   two-particle separation instead (default `:concentration`).
 - `output_file`: if non-empty, append `(t, separation)` pairs here when `plot_mode ==
   :distance` (default `""`, no file output).
-- `plot_dir`: if non-empty, save frames as PNGs and configuration `.dat` files here
-  instead of displaying them (default `""`).
+- `plot_dir`: if non-empty, save configuration `.dat` files here (default `""`, no file
+  output). Frames are displayed regardless.
 - `tol`: FMM/GMRES accuracy tolerance passed to [`marangoni_solve`](@ref) (default `1e-6`).
+- `colors`: per-particle fill colors (default `:white` for all particles).
+- `cmap`: heatmap colormap (default `:viridis`).
+- `pad`: margin added around the current particle centers when computing each frame's
+  plot extent, so all particles stay in view as they move (default `4.0`).
 
 # Returns
 - `(traj_xcm, traj_θcm, traj_t)`: the recorded trajectory of particle centers,
@@ -45,10 +51,19 @@ function suspension_simulate(xcm0, θcm0, Ω, Γ_D::Boundary, Γ_N::Boundary, g;
                   plot_mode=:concentration,
                   output_file="",
                   plot_dir="",
-                  tol=1e-6)
+                  tol=1e-3,
+                  colors=fill(:white, length(xcm0)),
+                  cmap=:viridis,
+                  pad=4.0)
 
     xcm, θcm = copy(xcm0), copy(θcm0)
     Nparticles = length(xcm)
+
+    function plot_lims(xcm_c)
+        xl = (minimum(real.(xcm_c)) - pad, maximum(real.(xcm_c)) + pad)
+        yl = (minimum(imag.(xcm_c)) - pad, maximum(imag.(xcm_c)) + pad)
+        return xl, yl
+    end
 
     t = 0.0
     next_plot = plot_every
@@ -74,12 +89,12 @@ function suspension_simulate(xcm0, θcm0, Ω, Γ_D::Boundary, Γ_N::Boundary, g;
     # Plot frame 0
     if !isempty(plot_dir) || plot_mode != :distance
         U0, σ0, Γ0, ϕinf0 = marangoni_solve(xcm, θcm, Ω, Γ_D, Γ_N, g; tol=tol)
-        p = plot_concentration(xcm, σ0, ϕinf0, Γ0; title="t = 0.00")
+        xlims0, ylims0 = plot_lims(xcm)
+        p0 = plot_concentration(xcm, σ0, ϕinf0, Γ0; title="t = 0.00", colors=colors, cmap=cmap, xlims=xlims0, ylims=ylims0)
+        display(p0)
         if !isempty(plot_dir)
             mkpath(plot_dir)
-            savefig(p, joinpath(plot_dir, "frame_000000.png"))
-        else
-            display(p)
+            savefig(p0, joinpath(plot_dir, "frame_000000.png"))
         end
         save_config("000000", 0.0, xcm, θcm, U0)
     end
@@ -97,10 +112,9 @@ function suspension_simulate(xcm0, θcm0, Ω, Γ_D::Boundary, Γ_N::Boundary, g;
         Δc2 = dt .* [U2[i][1] + im*U2[i][2] for i in 1:Nparticles]
         Δψ2 = dt .* [U2[i][3]                for i in 1:Nparticles]
 
-        # Adaptive time step based on minimum gap and maximum speed
-        function edge_gap(i, j)
-            d = xcm[j] - xcm[i]
-            d_hat = d / abs(d)
+        # Adaptive time step: shrink dt so no pair of particles closes its gap this step,
+        # using the component of relative velocity along the line joining each pair.
+        function edge_gap(i, j, d_hat)
             p_i = vcat(Γ[2i-1].γ, Γ[2i].γ)
             p_j = vcat(Γ[2j-1].γ, Γ[2j].γ)
             x_i = p_i[argmax(real.(conj(d_hat) .* (p_i .- xcm[i])))]
@@ -108,9 +122,18 @@ function suspension_simulate(xcm0, θcm0, Ω, Γ_D::Boundary, Γ_N::Boundary, g;
             return abs(x_i - x_j)
         end
 
-        d_min     = Nparticles > 1 ? minimum(edge_gap(i, j) for i in 1:Nparticles for j in i+1:Nparticles) : Inf
-        max_speed = maximum(hypot(U1[i][1], U1[i][2]) for i in 1:Nparticles)
-        dt_next   = clamp(safety * d_min / max(max_speed, 1e-14), dt_min, dt_max)
+        dt_next = dt_max
+        for i in 1:Nparticles, j in i+1:Nparticles
+            d_hat = (xcm[j] - xcm[i]) / abs(xcm[j] - xcm[i])
+            gap   = edge_gap(i, j, d_hat)
+            v_i   = U1[i][1] + im*U1[i][2]
+            v_j   = U1[j][1] + im*U1[j][2]
+            closing_speed = real(conj(d_hat) * (v_i - v_j))  # > 0 means approaching
+            if closing_speed > 0
+                dt_next = min(dt_next, safety * gap / closing_speed)
+            end
+        end
+        dt_next = clamp(dt_next, dt_min, dt_max)
 
         xcm_plot = copy(xcm)
         xcm .+= 0.5 .* (Δc1 .+ Δc2)
@@ -124,6 +147,7 @@ function suspension_simulate(xcm0, θcm0, Ω, Γ_D::Boundary, Γ_N::Boundary, g;
 
         @printf("  t = %.4f  dt = %.2e\n", t, dt_next)
 
+        frame = lpad(length(traj_t), 6, '0')
         if t >= next_plot
             if plot_mode == :distance
                 dists = [abs(traj_xcm[k][2] - traj_xcm[k][1]) for k in eachindex(traj_t)]
@@ -135,15 +159,14 @@ function suspension_simulate(xcm0, θcm0, Ω, Γ_D::Boundary, Γ_N::Boundary, g;
                 p = plot(traj_t, dists .- 2.0, xlabel="t", ylabel="|r₂ − r₁|",
                          legend=false, title="particle separation")
             else
+                xlims, ylims = plot_lims(xcm_plot)
                 p = plot_concentration(xcm_plot, σ, ϕinf, Γ;
-                                       title="t = $(round(t, digits=2))")
+                                       title="t = $(round(t, digits=2))", colors=colors, cmap=cmap, xlims=xlims, ylims=ylims)
             end
-            frame = lpad(length(traj_t), 6, '0')
+            display(p)
             if !isempty(plot_dir)
                 mkpath(plot_dir)
                 savefig(p, joinpath(plot_dir, "frame_$(frame).png"))
-            else
-                display(p)
             end
             save_config(frame, t, xcm, θcm, U1)
             next_plot += plot_every

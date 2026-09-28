@@ -36,7 +36,7 @@ fclose(fid);
 
 Lz = zB;
 
-fig = journal_figure([6.75 4], 2, 'tex');
+fig = journal_figure([6.75 3], 2, 'tex');
 ax  = axes(fig); hold(ax, 'on'); axis(ax, 'equal'); axis(ax, 'off');
 ax.Position = [0 0 1 1];
 
@@ -55,12 +55,12 @@ for k = 1:N
     ex = a * cos(t) * ct - b * sin(t) * st + xcm(k);
     ey = a * cos(t) * st + b * sin(t) * ct + ycm(k);
     ez = 0.01 * ones(size(t));   % lift above the surface — avoids z-fighting with surf()
-    fill3(ax, ex, ey, ez, 'w', 'EdgeColor', 'k', 'LineWidth', 2);
+    fill3(ax, ex, ey, ez, 'w', 'EdgeColor', 'k', 'LineWidth', 4);
 
     ex_act = a * cos(t_act) * ct - b * sin(t_act) * st + xcm(k);
     ey_act = a * cos(t_act) * st + b * sin(t_act) * ct + ycm(k);
     ez_act = 0.011 * ones(size(t_act));
-    plot3(ax, ex_act, ey_act, ez_act, '-', 'Color', P.col, 'LineWidth', 3);
+    plot3(ax, ex_act, ey_act, ez_act, '-', 'Color', P.col, 'LineWidth', 6);
 end
 
 bfid = fopen(fullfile(dataDir, sprintf('bulk_%s.dat', config)));
@@ -82,19 +82,8 @@ ds = @(A) A(1:skip:end, 1:skip:end, 1:skip:end);
 % quiver3(ax, Xb(keep), Yb(keep), Zb(keep), Ub(keep), Vb(keep), Wb(keep), ...
     % 3, 'Color', [0.2 0.2 0.2], 'LineWidth', 1.5);
 
-% z-depth labels at the left corner of the box
-x0 = min(xplt); y0 = min(yplt)-2;
-tb1 = text(ax, x0, y0, 0+1.5, '{\it z} = 0', 'FontSize', 32, 'HorizontalAlignment', 'left');
-tb2 = text(ax, x0, y0, -Lz-2, '{\it z} \rightarrow -\infty', 'FontSize', 32, 'HorizontalAlignment', 'left');
-tb1.Position(1) = tb2.Position(1);
-
-% Domain labels: S on the interface, V in the bulk
-x1 = -2 + max(xplt); y1 = max(yplt);
-text(ax, 8, 8, 0.5, '{\it S}', 'FontSize', 32, 'HorizontalAlignment', 'center');
-text(ax, 14, 6, -0.2 * Lz, '{\it V}', 'FontSize', 32, 'HorizontalAlignment', 'center');
-
 view(ax, [60 20]);
-camzoom(ax, 1.6);
+camzoom(ax, 2.1);
 % xlim([xL xR])
 % ylim([yL yR])
 
@@ -123,13 +112,13 @@ function draw_box(ax, xplt, yplt, Lz)
     corners = [x0 y0; x1 y0; x1 y1; x0 y1];
     for k = 1:4
         plot3(ax, corners(k, 1) * [1 1], corners(k, 2) * [1 1], [0 -Lz], ':', ...
-            'Color', [0.5 0.5 0.5], 'LineWidth', 2);
+            'Color', [0.5 0.5 0.5], 'LineWidth', 4);
     end
 
     rim = [corners; corners(1, :)];
     plot3(ax, rim(:, 1), rim(:, 2), -Lz * ones(5, 1), ':', ...
-        'Color', [0.5 0.5 0.5], 'LineWidth', 2);
+        'Color', [0.5 0.5 0.5], 'LineWidth', 4);
 
-    plot3(ax, rim(:, 1), rim(:, 2), 0 * ones(5, 1), ':', ...
-        'Color', [0.2 0.2 0.2], 'LineWidth', 2);
+    plot3(ax, rim(:, 1), rim(:, 2), 0 * ones(5, 1), '-', ...
+        'Color', [0.2 0.2 0.2], 'LineWidth', 4);
 end

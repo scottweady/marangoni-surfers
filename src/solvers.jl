@@ -192,8 +192,8 @@ function marangoni_multipoles(Ω, Γ_D, Γ_N, g)
     fd = [real.(sum(x .* f[1] .* Ω.dz))  real.(sum(x .* f[2] .* Ω.dz));
           real.(sum(y .* f[1] .* Ω.dz))  real.(sum(y .* f[2] .* Ω.dz))]
 
-    xD, xN = cos.(Γ_D.s), cos.(Γ_N.s)
-    yD, yN = sin.(Γ_D.s), sin.(Γ_N.s)
+    xD, xN = real.(Γ_D.γ), real.(Γ_N.γ)
+    yD, yN = imag.(Γ_D.γ), imag.(Γ_N.γ)
 
     sm = [integral(xD .* α_D, Γ_D) + integral(xN .* α_N, Γ_N),
           integral(yD .* α_D, Γ_D) + integral(yN .* α_N, Γ_N)]

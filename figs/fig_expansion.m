@@ -57,7 +57,7 @@ mean_speed = cellfun(@mean, speeds);
 
 % ── Figure ───────────────────────────────────────────────────────────────────
 
-fig = journal_figure([6.5 2.25], 2, 'tex');
+fig = journal_figure([6.5 2.5], 2, 'tex');
 
 tf = tv(end);
 
@@ -67,7 +67,7 @@ line_col  = P.col;
 
 % Col 1a: radius vs time
 sp_R = axes(fig); hold(sp_R, 'on'); box(sp_R, 'on');
-plot(sp_R, tv, Rv/Rv(1), 'Color', line_col);
+plot(sp_R, tv, Rv/Rv(1), 'o-', 'Color', line_col);
 ylabel(sp_R, '{\it R}/{\it R}_0');
 xlim(sp_R, [0, tf]);
 ylim(sp_R, [0, max(Rv)/Rv(1)*1.1]);
@@ -75,7 +75,7 @@ set(sp_R, 'XTickLabel', {});
 
 % Col 1b: mean speed vs time
 sp_V = axes(fig); hold(sp_V, 'on'); box(sp_V, 'on');
-plot(sp_V, tv, mean_speed/u_single, 'Color', line_col);
+plot(sp_V, tv, mean_speed/u_single, 'o-', 'Color', line_col);
 xlabel(sp_V, 'time, {\it t}');
 ylabel(sp_V, '\langle |{\it\bf u}_{cm}| \rangle / |{\it\bf u}_{cm,0}|');
 xlim(sp_V, [0, tf]);
@@ -150,7 +150,7 @@ sp_v = [axes(fig), axes(fig), axes(fig)];
 for j = 1:3
     hold(sp_v(j), 'on'); box(sp_v(j), 'on');
     k = snap_idx(j);
-    histogram(sp_v(j), speeds{k}/u_single, 10, 'Normalization', 'pdf', ...
+    histogram(sp_v(j), speeds{k}/u_single, 51/3, 'Normalization', 'pdf', ...
               'FaceColor', dist_cmap(j,:), 'EdgeColor', 'none');
     xlim(sp_v(j), [0.5 1.5]);
     ylabel(sp_v(j), 'pdf');
@@ -169,10 +169,10 @@ end
 
 % ── Layout ────────────────────────────────────────────────────────────────────
 
-lm = 0.5;   % left margin
+lm = 0.2;   % left margin
 rm = 0.20;   % right margin
 bm = 0.80;   % bottom margin
-tm = 0.15;   % top margin
+tm = 0.0;   % top margin
 cg = 1.00;   % gap between columns
 vg = 0.2;   % vertical gap between stacked left panels
 
@@ -185,7 +185,7 @@ panelH  = figH - bm - tm;
 % Height of (a) after axis equal: data fills panelW in x, height follows
 height_C = diff(ylims) / diff(xlims) * panelW;
 halfH    = (height_C - vg) / 2;
-sg       = 0.10;   % vertical gap between stacked right panels
+sg       = 0.25;   % vertical gap between stacked right panels
 stackH   = (height_C - 2*sg) / 3;
 
 col1x = lm;

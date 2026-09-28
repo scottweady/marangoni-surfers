@@ -115,6 +115,7 @@ I1_th0   = data(:,2);
 I1_thpi2 = data(:,4);
 d_fine   = linspace(d(1), d(end), 300)';
 fit0     = exp(polyval([-5/4, 0], log(d_fine)));
+fit0     = fit0 * abs(I1_th0(end)/fit0(end));
 
 sp3 = axes(fig);
 hold(sp3, 'on'); box(sp3, 'on');
