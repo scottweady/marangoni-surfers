@@ -38,7 +38,7 @@ for k = 1:Np
     imagesc(ax(k), xplt, yplt, phi);
     ax(k).YDir = 'normal';
     axis(ax(k), 'equal'); axis(ax(k), 'tight');
-    colormap(ax(k), cmocean('tempo'));
+    colormap(ax(k), P.cmap());
     clim(ax(k), [0 1]);
 
     ax(k).XLabel.String = '{\it x}';
@@ -85,8 +85,8 @@ files  = files(isort);
 a_vals = a_vals(isort);
 b_vals = b_vals(isort);
 
-cmap = colorcet('D11', 'N', numel(files)).^1.5;
-
+% cmap = colorcet('D11', 'N', numel(files)).^1.5;
+cmap = P.cmap(numel(files));
 axSep = axes(fig); hold(axSep, 'on'); box(axSep, 'on');
 axOmg = axes(fig); hold(axOmg, 'on'); box(axOmg, 'on');
 

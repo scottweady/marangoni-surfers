@@ -1,6 +1,8 @@
 function P = palette()
-% TEMPO_PALETTE  Return a struct of colors sampled from cmocean('tempo').
-raw    = cmocean('tempo', 7);
+% PALETTE  Return a struct of colors and a colormap sampled from a cmocean map.
+name   = 'dense';
+raw    = cmocean(name, 7);
+P.cmap = @(varargin) cmocean(name, varargin{:});   % P.cmap() or P.cmap(n)
 P.c1   = raw(7,:);
 P.c2   = raw(3,:);
 P.col  = raw(5,:);

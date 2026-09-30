@@ -40,7 +40,7 @@ for k = 1:Np
     imagesc(ax(k), xplt, yplt, phi);
     ax(k).YDir = 'normal';
     axis(ax(k), 'equal'); axis(ax(k), 'tight');
-    colormap(ax(k), cmocean('tempo'));
+    colormap(ax(k), P.cmap());
     clim(ax(k), [0 1]);
 
     ax(k).XLabel.String = '{\it x}';
@@ -147,7 +147,7 @@ set(axTraj(2), 'YTickLabel', [], 'YLabel', []);
 axDist = axes(fig);
 hold(axDist, 'on'); box(axDist, 'on');
 
-cmap = cmocean('tempo', numel(dfiles) + 2);
+cmap = P.cmap(numel(dfiles) + 2);
 cmap = cmap(2:end-1, :);
 for k = 1:numel(dfiles)
     Tk = readmatrix(fullfile(dataDir, dfiles(k).name));

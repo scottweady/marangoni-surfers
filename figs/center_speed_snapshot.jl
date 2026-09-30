@@ -33,19 +33,20 @@ Ns = 128
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 
-Nparticles = 13
-d          = 20.0
+Nparticles = 7
+d          = 10.0
 xcm_base   = ComplexF64[d * (k - (Nparticles + 1) / 2) for k in 1:Nparticles]
 
-# Grid: 4:1 aspect ratio (x-range / 4 = y-range) for collective flow visualization
+# Grid: aspect ratio (x-range / y-range) matched to panel (a) of fig_center_speed_parallel
+aspect = 1.7
 pad    = 3.0
 Nx     = 400
-Ny     = 100
+Ny     = round(Int, Nx / aspect)
 xmin   = real(xcm_base[1])   - pad
 xmax   = real(xcm_base[end]) + pad
 xrange = xmax - xmin
-xplt   = range(xmin, xmax,        length=Nx)
-yplt   = range(-xrange/8, xrange/8, length=Ny)   # half-height = xrange/8 → 4:1
+xplt   = range(xmin, xmax, length=Nx)
+yplt   = range(-xrange/(2aspect), xrange/(2aspect), length=Ny)
 
 # ── Helper: write a Ny×Nx matrix row by row ───────────────────────────────────
 

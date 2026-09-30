@@ -7,7 +7,7 @@ Ns = 64
 M = 16
 α = π/2
 
-aspect_ratio = 0.5
+aspect_ratio = 1.0
 a = sqrt(aspect_ratio)
 b = 1.0 / a
 g(θ)  = -cos(θ)
@@ -21,7 +21,7 @@ g(θ)  = -cos(θ)
 
 # ── Run ───────────────────────────────────────────────────────────────────────
 
-config = :line   # :line, :hedgehog, :courtroom, or :ring
+config = :hedgehog   # :line, :hedgehog, :courtroom, or :ring
 
 d = 5.0
 
@@ -48,7 +48,7 @@ elseif config == :hedgehog
         for j in 1:n_k
             φ = 2π * (j-1) / n_k
             push!(xs, r * exp(im * φ))
-            push!(θs, 2π*rand())                 # pointing radially outward
+            push!(θs, φ)                 # pointing radially outward
         end
     end
     xcm = xs
@@ -106,4 +106,4 @@ end
 frames_dir = joinpath(@__DIR__, "frames_$(round(a/b, digits=4))")
 isdir(frames_dir) && rm(frames_dir; recursive=true)
 println("Running simulation...")
-traj_xcm, traj_θcm, traj_t = suspension_simulate(xcm, θcm, Ω, Γ_D, Γ_N, g; t_end=100000.0, plot_mode=:concentration, plot_every=5.0, output_file="distances.dat", plot_dir=frames_dir, dt_max=5.0, colors=colors, cmap=cmap)
+traj_xcm, traj_θcm, traj_t = suspension_simulate(xcm, θcm, Ω, Γ_D, Γ_N, g; t_end=2000.0, plot_mode=:concentration, plot_every=5.0, output_file="hedgehog.dat", plot_dir=frames_dir, dt_max=5.0, colors=colors, cmap=cmap)

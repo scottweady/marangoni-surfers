@@ -23,7 +23,7 @@ fill(ax, [ratio; flipud(ratio)], [rc; zeros(size(rc))], 0.9 * [1 1 1], ...
     'EdgeColor', 'none', 'HandleVisibility', 'off');
 hold on
 plot(ax, ratio, r, '-o', 'Color', P.c1, 'MarkerSize', 4, 'MarkerFaceColor', 'w', ...
-    'DisplayName', '{\it R}^*');
+    'DisplayName', '{\it{d}}^*');
 plot(ax, ratio, rc, ':', 'Color', 'k', 'DisplayName', '2{\it{b}}');
 ax.XScale = 'log';
 % ax.XTick = [0.125 0.25 0.5 1 2 4 8];
@@ -31,13 +31,13 @@ ax.XScale = 'log';
 xlim(ax, [1/16 16]);
 ylim(ax, [0 3]);
 
-text(ax, 0.9, 0.9, 'feasible ({\it{R}}^* > 2{\it{b}})', ...
+text(ax, 0.9, 0.9, 'feasible ({\it{d}}^* > 2{\it{b}})', ...
      'Units', 'normalized', 'HorizontalAlignment', 'right', ...
      'VerticalAlignment', 'top', 'BackgroundColor', 'w', 'Margin', 2, ...
      'FontSize', ax.FontSize);
 
 xlabel(ax, 'aspect ratio, {\it a/b}');
-ylabel(ax, 'equilibrium separation, {\it R}^*');
+ylabel(ax, 'equilibrium separation, {\it{d}}^*');
 % legend(ax, 'Location', 'northeast', 'Color', 'none');
 
 % ── Layout ────────────────────────────────────────────────────────────────────

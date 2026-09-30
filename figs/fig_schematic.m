@@ -44,7 +44,7 @@ draw_box(ax, xplt, yplt, Lz);
 
 [X, Y] = meshgrid(xplt, yplt);
 surf(ax, X, Y, zeros(size(phi)), phi, 'EdgeColor', 'none', 'FaceAlpha', 0.75);
-colormap(ax, cmocean('tempo'));
+colormap(ax, P.cmap());
 clim(ax, [0 1]);
 
 t   = linspace(0, 2 * pi, 256);
@@ -92,7 +92,8 @@ function draw_box(ax, xplt, yplt, Lz)
     x0 = min(xplt); x1 = max(xplt);
     y0 = min(yplt); y1 = max(yplt);
 
-    cmap = cmocean('tempo');
+    P = palette();
+    cmap = P.cmap();
     cmap = mean(cmap, 1);
 
     % Side walls (fluid), translucent — no solid bottom: the domain is

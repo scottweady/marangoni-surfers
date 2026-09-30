@@ -18,7 +18,8 @@ baseDir = fullfile(fileparts(mfilename('fullpath')), '..', 'data', 'convergence'
 
 % ── Colors ────────────────────────────────────────────────────────────────────
 nr   = numel(ratios);
-cmap = cmocean('tempo', nr + 2);
+P = palette();
+cmap = P.cmap(nr + 2);
 cmap = cmap(2:nr+1, :);
 
 % ── Figure ────────────────────────────────────────────────────────────────────

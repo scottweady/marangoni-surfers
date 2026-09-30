@@ -9,7 +9,7 @@ ars       = [0.5, 1.0, 2.0];
 Nsnap     = 5;
 alpha_arc = pi / 2;   % active (Neumann) arc half-angle, matches suspension.jl
 P         = palette();
-cmap      = cmocean('tempo', 5);
+cmap      = P.cmap(5);
 
 data = cell(1, numel(ars));
 for k = 1:numel(ars)

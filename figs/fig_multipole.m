@@ -21,7 +21,7 @@ rp   = 1.0;
 mask = R < rp;
 
 th   = linspace(0, 2*pi, 256);
-cmap = cmocean('tempo');
+cmap = P.cmap();
 clim_max = 1/rp;
 
 % ── Fine grid for pcolor ──────────────────────────────────────────────────────
