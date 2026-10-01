@@ -3,7 +3,8 @@
 
 close all;
 
-dataDir = fullfile(fileparts(mfilename('fullpath')), '..', 'data', 'parallel');
+baseDir = fileparts(mfilename('fullpath'));
+dataDir = fullfile(baseDir, '..', 'data', 'parallel');
 P    = palette();
 col  = P.col;
 
@@ -85,6 +86,9 @@ files  = files(isort);
 a_vals = a_vals(isort);
 b_vals = b_vals(isort);
 
+% single-particle U, β, λ for the far-field ODEs (5.2)-(5.3)
+E = readmatrix(fullfile(baseDir, '..', 'scripts', 'single', 'equilibrium_separation.dat'), 'NumHeaderLines', 1);
+
 % cmap = colorcet('D11', 'N', numel(files)).^1.5;
 cmap = P.cmap(numel(files));
 axSep = axes(fig); hold(axSep, 'on'); box(axSep, 'on');
@@ -94,33 +98,41 @@ for k = 1:numel(files)
     A    = readmatrix(fullfile(files(k).folder, files(k).name));
     A    = A(all(~isnan(A), 2), :);
     c    = cmap(k, :);
-    lbl  = ['{\it a/b} = ' num2str(a_vals(k)/b_vals(k), '%.2f')];
     t    = A(:,1);
-    sep  = A(:,8);
+    sep  = hypot(A(:,2) - A(:,5), A(:,3) - A(:,6));
     ang1 = unwrap(A(:,4));
     ang2 = unwrap(A(:,7));
-    plot(axSep, t, sep/sep(1), 'Color', c, 'DisplayName', lbl);
+    plot(axSep, t, sep, 'Color', c);
     plot(axOmg, t, ang1 - pi/2, 'Color', c, 'HandleVisibility', 'off');
-    plot(axOmg, t, ang2 - pi/2, 'Color', c, 'LineStyle', '--', 'HandleVisibility', 'off');
+    % plot(axOmg, t, ang2 - pi/2, 'Color', c, 'LineStyle', '--', 'HandleVisibility', 'off');
 
-    if a_vals(k) > b_vals(k)
-        plot(axSep, t(end), sep(end)/sep(1), 'o', 'Color', c, 'MarkerFaceColor', 'w', 'HandleVisibility', 'off');
+    if t(end) < 500
+        plot(axSep, t(end), sep(end), 'o', 'Color', c, 'MarkerFaceColor', 'w', 'HandleVisibility', 'off');
         plot(axOmg, t(end), ang1(end) - pi/2, 'o', 'Color', c, 'MarkerFaceColor', 'w', 'HandleVisibility', 'off');
-        plot(axOmg, t(end), ang2(end) - pi/2, 'o', 'Color', c, 'MarkerFaceColor', 'w', 'HandleVisibility', 'off');
+        % plot(axOmg, t(end), ang2(end) - pi/2, 'o', 'Color', c, 'MarkerFaceColor', 'w', 'HandleVisibility', 'off');
     end
+
+    disp(['Processing trajectory ' num2str(k) ' of ' num2str(numel(files))]);
+    [~, i] = min(abs(E(:,1) - a_vals(k)/b_vals(k)));
+    uS = E(i,4);  beta = E(i,5);  lam = E(i,6);
+    opts = odeset('RelTol', 1e-12, 'AbsTol', 1e-12);
+    [tf, Y] = ode45(@(~, y) farfield_rhs(y, uS, beta, lam), [0 500], A(1, 2:7)', opts);
+    sep_ff = hypot(Y(:,1) - Y(:,4), Y(:,2) - Y(:,5));
+    plot(axSep, tf, sep_ff, '--', 'Color', c);
+    plot(axOmg, tf, unwrap(Y(:,3)) - pi/2, '--', 'Color', c, 'HandleVisibility', 'off');
 end
 
 linkaxes([axSep, axOmg], 'x');
 xlabel(axSep, 'time, {\it t}');
 xlabel(axOmg, 'time, {\it t}');
-ylabel(axSep, 'dist({\it\Gamma}_1, {\it\Gamma}_2)');
-ylabel(axOmg, '{\it \theta} - \pi/2');
-legend(axSep, 'Location', 'southwest', 'Color', 'none');
+ylabel(axSep, '|{\it\bfx}_{cm,1} - {\it\bfx}_{cm,2}|');
+ylabel(axOmg, '{\it\theta}_{cm,1} - \pi/2');
 
 xlim(axSep, [0 500]); xlim(axOmg, [0 500]);
-
+ylim(axSep, [0 40]); % separation
+ylim(axOmg, [-pi/5 pi/5]); % orientation relative to pi/2
 % ── Layout ────────────────────────────────────────────────────────────────────
-topH = 4.2; botH = 4.5;
+topH = 4.2; botH = 4.8;
 
 fig.Units = 'inches'; figW = fig.Position(3);
 set([ax, axSep, axOmg], 'Units', 'inches');
@@ -135,11 +147,24 @@ for k = 1:Np
 end
 
 % time series row
-ml = 1.0; mr = 0.75; mb = 0.75; mt = 0.5; gapH = 1.0;
+ml = 1.0; mr = 0.75; mb = 0.75; mt = 0.3; gapH = 1.2;
 panelW = (figW - ml - mr - gapH) / 2;
 panelH = botH - mb - mt;
 axSep.Position = [ml,                 mb, panelW, panelH];
 axOmg.Position = [ml + panelW + gapH, mb, panelW, panelH];
+
+% ── Legend: simulation (solid) over far field (dashed), one label per a/b ────
+axLeg = axes(fig, 'Units', 'inches', 'Position', axSep.Position, ...
+             'Visible', 'off', 'XLim', [0 1], 'YLim', [0 1]);
+hold(axLeg, 'on');
+x0 = 0.04; L = 0.12; dy = 0.025; rowH = 0.1;
+for k = 1:numel(files)
+    yk = 0.93 - (k-1)*rowH;
+    plot(axLeg, x0 + [0 L], yk + dy*[1 1], '-',  'Color', cmap(k,:));
+    plot(axLeg, x0 + [0 L], yk - dy*[1 1], '--', 'Color', cmap(k,:));
+    text(axLeg, x0 + L + 0.03, yk, ['{\it a/b} = ' num2str(a_vals(k)/b_vals(k), '%.2f')], ...
+         'VerticalAlignment', 'middle', 'FontName', axSep.FontName, 'FontSize', axSep.FontSize);
+end
 
 letters = 'abc';
 for k = 1:Np
@@ -148,6 +173,21 @@ for k = 1:Np
 end
 panel_label('\it (d)', axSep, -0.95, 0.2);
 panel_label('\it (e)', axOmg, -0.95, 0.2);
+
+% Far-field ODEs (5.2)-(5.3) for a pair, y = [x1 y1 θ1 x2 y2 θ2], r_ij = x_i - x_j.
+function dy = farfield_rhs(y, uS, beta, lam)
+    X = [y(1) y(2); y(4) y(5)];  th = [y(3) y(6)];
+    dy = zeros(6, 1);
+    for i = 1:2
+        j  = 3 - i;
+        p  = [cos(th(i)); sin(th(i))];  q = [-p(2); p(1)];
+        pj = [cos(th(j)); sin(th(j))];
+        r  = (X(i,:) - X(j,:))';  d = norm(r);  e = r/d;
+        u  = uS*p + beta*(pj - e*(e'*pj))/(4*pi*d);
+        w  = -beta*lam*( -3*(q'*e)*(e'*p)*(e'*pj) + (q'*e)*(pj'*p) + (q'*pj)*(e'*p) )/(4*pi*d^2);
+        dy(3*i-2:3*i) = [u; w];
+    end
+end
 
 function a = panel_label(str, ax, xOffset, yOffset)
     a = annotation('textbox', 'String', str, 'FontName', 'Times', ...

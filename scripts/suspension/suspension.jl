@@ -7,7 +7,7 @@ Ns = 64
 M = 16
 α = π/2
 
-aspect_ratio = 1.0
+aspect_ratio = 0.25
 a = sqrt(aspect_ratio)
 b = 1.0 / a
 g(θ)  = -cos(θ)
@@ -74,36 +74,9 @@ elseif config == :ring
     θcm = atan.(Ny, Nx)
     colors = fill(:white, Nparticles)
 
-elseif config == :courtroom
-    xs = ComplexF64[]
-    θs  = Float64[]
-
-    # jury: six particles along the bottom, facing up
-    for i in 1:6
-        push!(xs, 0.5*d*(i - 1 - 2.5) + im*(-2*d))
-        push!(θs, π/2)
-        push!(colors, pastel_purple)
-    end
-
-    # prosecution and defense: two pairs on the left, facing right
-    for (row, color) in zip((0.9*d, 0.4*d, -0.4*d, -0.9*d), (pastel_red, pastel_red, pastel_blue, pastel_blue))
-        push!(xs, -2*d + im*row)
-        push!(θs, 0.0)
-        push!(colors, color)
-    end
-
-    # judge: one particle on the right, facing left
-    push!(xs, 2*d + im*(0.65*d))
-    push!(θs, π)
-    push!(colors, :gray)
-
-    xcm = xs
-    θcm = θs
-    Nparticles = length(xcm)
-    cmap = cgrad([:cornsilk, :burlywood, :peru, :saddlebrown])
 end
 
 frames_dir = joinpath(@__DIR__, "frames_$(round(a/b, digits=4))")
 isdir(frames_dir) && rm(frames_dir; recursive=true)
 println("Running simulation...")
-traj_xcm, traj_θcm, traj_t = suspension_simulate(xcm, θcm, Ω, Γ_D, Γ_N, g; t_end=2000.0, plot_mode=:concentration, plot_every=5.0, output_file="hedgehog.dat", plot_dir=frames_dir, dt_max=5.0, colors=colors, cmap=cmap)
+traj_xcm, traj_θcm, traj_t = suspension_simulate(xcm, θcm, Ω, Γ_D, Γ_N, g; t_end=200.0, plot_mode=:concentration, plot_every=5.0, output_file="hedgehog.dat", plot_dir=frames_dir, dt_max=5.0, colors=colors, cmap=cmap)

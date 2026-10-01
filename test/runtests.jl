@@ -24,6 +24,7 @@ Nspan = 2:1:24
 
 # # Mixed boundary condition solvers
 # include("test_mixed_openarc.jl")
+include("test_mixed_exterior.jl")
 
 # Marangoni solvers
 include("../src/marangoni.jl")

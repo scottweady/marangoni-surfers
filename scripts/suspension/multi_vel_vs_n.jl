@@ -4,8 +4,8 @@ include("../../src/marangoni.jl")
 
 # ── Parameters ────────────────────────────────────────────────────────────────
 
-Ns   = 1024
-M    = 32
+Ns   = 128
+M    = 16
 α    = π/2
 a, b = 1.0, 1.0
 g(θ) = -cos(θ)
@@ -17,8 +17,8 @@ dvals = [5.0, 10.0, 15.0, 20.0]   # center-to-center spacings between adjacent p
 γss(s) = -a*cos(s) - im*b*sin(s)
 
 Ω   = ellipse(a, b, M)
-Γ_D = openarc(γ, γs, γss, Ns; dom=[α, 2π-α])
-Γ_N = openarc(γ, γs, γss, Ns; dom=[-α, α])
+Γ_D = openarc(γ, γs, γss, Ns; dom=[α, 2π-α], quad=:open_weight)
+Γ_N = openarc(γ, γs, γss, Ns; dom=[-α, α], quad=:open)
 
 # ── Compute single-particle speed for normalization ───────────────────────────
 

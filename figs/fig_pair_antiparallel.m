@@ -1,6 +1,5 @@
 % fig_pair_antiparallel.m — anti-parallel ellipse pairs: (a)-(c) concentration + velocity
-% fields at d0 = 8 across aspect ratio; (d),(e) x-y trajectories of an oblate pair
-% (a=0.25, b=4) for d0 = 12, 18; (f) separation distance vs time for each d0.
+% fields at d0 = 8, (d) separation and (e) orientation vs time across aspect ratio.
 
 close all;
 
@@ -73,108 +72,57 @@ end
 cb = colorbar(ax(end), 'Location', 'eastoutside', 'Ticks', 0:0.5:1);
 cb.Title.String = '\phi';
 
-% ── Oblate pair: load all separation data ─────────────────────────────────────
-dataDir = fullfile(baseDir, '..', 'data', 'oblate');
 
-dfiles = dir(fullfile(dataDir, 'a0.2500_b4.0000_d*.dat'));
-d_vals = zeros(1, numel(dfiles));
-for k = 1:numel(dfiles)
-    tok = sscanf(dfiles(k).name, 'a%f_b%f_d%f.dat');
-    d_vals(k) = tok(3);
-end
-[d_vals, isort] = sort(d_vals);
-dfiles = dfiles(isort);
+% ── Separation and orientation vs time ───────────────────────────────────────
+traj_ab = [0.25, 1, 10];
+traj_d  = [5.0, 4.0, 1.6];
+Nt = numel(traj_ab);
 
-col1 = P.c1;
-col2 = P.c2;
+% single-particle U, β, λ for the far-field ODEs (5.2)-(5.3)
+E = readmatrix(fullfile(baseDir, '..', 'scripts', 'single', 'equilibrium_separation.dat'), 'NumHeaderLines', 1);
 
-% --- Trajectory panels -------------------------------------------------------
-traj_d = [12, 18];
-axTraj = [axes(fig), axes(fig)];
-for ip = 1:2
-    fname_traj = sprintf('a0.2500_b4.0000_d%g.0.dat', traj_d(ip));
-    T  = readmatrix(fullfile(dataDir, fname_traj));
-    id = 1 : min(400, size(T,1));
-    T  = T(id, :);
-    x1 = T(:,2);  y1 = T(:,3);  th1 = T(:,4);
-    x2 = T(:,5);  y2 = T(:,6);  th2 = T(:,7);
+cmap = P.cmap(Nt+1);
+cmap = cmap(2:end, :);
+axSep = axes(fig); hold(axSep, 'on'); box(axSep, 'on');
+axOmg = axes(fig); hold(axOmg, 'on'); box(axOmg, 'on');
 
-    tokens = sscanf(fname_traj, 'a%f_b%f_d%f.dat');
-    a_ell  = tokens(1);
-    b_ell  = tokens(2);
+for k = 1:Nt
+    a_ell = sqrt(traj_ab(k));  b_ell = 1.0/a_ell;
+    A    = readmatrix(fullfile(dataDir, sprintf('a%.4f_b%.4f_d%.1f.dat', a_ell, b_ell, traj_d(k))));
+    A    = A(all(~isnan(A), 2), :);
+    c    = cmap(k, :);
+    t    = A(:,1);
+    sep  = hypot(A(:,2) - A(:,5), A(:,3) - A(:,6));
+    ang1 = unwrap(A(:,4));
+    plot(axSep, t, sep, 'Color', c);
+    plot(axOmg, t, ang1 + pi/2, 'Color', c, 'HandleVisibility', 'off');
 
-    axk = axTraj(ip);
-    hold(axk, 'on'); box(axk, 'on'); axis(axk, 'equal');
+    disp(['Processing trajectory ' num2str(k) ' of ' num2str(Nt)]);
+    [~, i] = min(abs(E(:,1) - traj_ab(k)));
+    uS = E(i,4);  beta = E(i,5);  lam = E(i,6);
+    opts = odeset('RelTol', 1e-12, 'AbsTol', 1e-12);
+    [tf, Y] = ode45(@(~, y) farfield_rhs(y, uS, beta, lam), [0 50], A(1, 2:7)', opts);
+    sep_ff = hypot(Y(:,1) - Y(:,4), Y(:,2) - Y(:,5));
+    plot(axSep, tf, sep_ff, '--', 'Color', c);
+    plot(axOmg, tf, unwrap(Y(:,3)) + pi/2, '--', 'Color', c, 'HandleVisibility', 'off');
 
-    plot(axk, x1, y1, '-', 'Color', col1, 'DisplayName', 'particle 1');
-    plot(axk, x2, y2, '-', 'Color', col2, 'DisplayName', 'particle 2');
-
-    phi_e  = linspace(0, 2*pi, 200);
-    ex0    = a_ell * cos(phi_e);
-    ey0    = b_ell * sin(phi_e);
-    alp    = pi/2;
-    phi_act = linspace(alp, 2*pi - alp, 150);
-    xa_act  = a_ell * cos(phi_act);
-    ya_act  = b_ell * sin(phi_act);
-
-    parts = {x1, y1, th1, col1; x2, y2, th2, col2};
-    for p = 1:2
-        xc = parts{p,1}(1); yc = parts{p,2}(1);
-        thp = parts{p,3}(1); colp = parts{p,4};
-        ct = cos(thp); st = sin(thp);
-        xe = ct*ex0 - st*ey0 + xc;
-        ye = st*ex0 + ct*ey0 + yc;
-        patch(axk, xe, ye, [0.92 0.92 0.92], 'EdgeColor', [0.2 0.2 0.2], ...
-              'LineWidth', 1.5, 'HandleVisibility', 'off');
-        xe_arc = ct*xa_act - st*ya_act + xc;
-        ye_arc = st*xa_act + ct*ya_act + yc;
-        plot(axk, xe_arc, ye_arc, '-', 'Color', colp, 'LineWidth', 4, ...
-             'HandleVisibility', 'off');
-        quiver(axk, xc, yc, cos(thp), sin(thp), 3, 'Color', 'k', ...
-               'LineWidth', 2, 'MaxHeadSize', 1, 'HandleVisibility', 'off');
-    end
-
-    xlabel(axk, '{\it x}');
-    ylabel(axk, '{\it y}');
-    axis(axk, 18 * [-1 1 -1 1]);
-    xticks(axk, -20:10:20);
-    yticks(axk, -20:10:20);
 end
 
-set(axTraj(2), 'YTickLabel', [], 'YLabel', []);
+linkaxes([axSep, axOmg], 'x');
+xlabel(axSep, 'time, {\it t}');
+xlabel(axOmg, 'time, {\it t}');
+ylabel(axSep, '|{\it\bfx}_{cm,1} - {\it\bfx}_{cm,2}|');
+ylabel(axOmg, '{\it\theta}_{cm,1} + \pi/2');
 
-% --- Separation distance vs time ---------------------------------------------
-axDist = axes(fig);
-hold(axDist, 'on'); box(axDist, 'on');
-
-cmap = P.cmap(numel(dfiles) + 2);
-cmap = cmap(2:end-1, :);
-for k = 1:numel(dfiles)
-    Tk = readmatrix(fullfile(dataDir, dfiles(k).name));
-    tk  = Tk(:,1);
-    sep = sqrt((Tk(:,5) - Tk(:,2)).^2 + (Tk(:,6) - Tk(:,3)).^2);
-    plot(axDist, tk, sep, '-', 'Color', cmap(k,:), ...
-         'DisplayName', strcat('{\it d}_0 = {}', num2str(d_vals(k))));
-    if k == 1
-        sep_inf = sep(end);
-    end
-end
-
-plot(axDist, [0 5e4], [1 1] * sep_inf, ':', 'Color', 0.2 * [1 1 1], 'HandleVisibility', 'off');
-
-xlabel(axDist, 'time, {\it t}');
-ylabel(axDist, 'distance, {\it d}');
-legend(axDist, 'Location', 'northeast', 'Color', 'none');
-
-xlim(axDist, [0 50000]);
-ylim(axDist, [8 32]);
-yticks(axDist, 8:8:32);
+xlim(axSep, [0 50]);
+xlim(axOmg, [0 50]);
+ylim(axOmg, [-1.2 0.4]);
 
 % ── Layout ────────────────────────────────────────────────────────────────────
-topH = 4.2; botH = 4.5;
+topH = 4.2; botH = 4.8;
 
 fig.Units = 'inches'; figW = fig.Position(3);
-set([ax, axTraj, axDist], 'Units', 'inches');
+set([ax, axSep, axOmg], 'Units', 'inches');
 set(ax, 'ActivePositionProperty', 'position');
 
 % fields row
@@ -185,13 +133,25 @@ for k = 1:Np
     ax(k).Position = [ml + (k-1)*(panelW+gap), botH + mb, panelW, panelH];
 end
 
-% oblate row
-ml = 0.75; mr = 0.75; mb = 0.75; mt = 0.30; gap = 1.0;
-trajW  = (figW - ml - mr - gap) / 3.25;
+% time series row
+ml = 1.0; mr = 0.75; mb = 0.75; mt = 0.3; gapH = 1.2;
+panelW = (figW - ml - mr - gapH) / 2;
 panelH = botH - mb - mt;
-axTraj(1).Position = [ml,         mb, trajW, panelH];
-axTraj(2).Position = [ml + trajW, mb, trajW, panelH];
-axDist.Position    = [ml + 2*trajW + gap, mb, figW - ml - 2*trajW - gap - mr, panelH];
+axSep.Position = [ml,                 mb, panelW, panelH];
+axOmg.Position = [ml + panelW + gapH, mb, panelW, panelH];
+
+% ── Legend: simulation (solid) over far field (dashed), one label per a/b ────
+axLeg = axes(fig, 'Units', 'inches', 'Position', axSep.Position, ...
+             'Visible', 'off', 'XLim', [0 1], 'YLim', [0 1]);
+hold(axLeg, 'on');
+x0 = 0.04; L = 0.12; dy = 0.025; rowH = 0.1;
+for k = 1:Nt
+    yk = 0.93 - (k-1)*rowH;
+    plot(axLeg, x0 + [0 L], yk + dy*[1 1], '-',  'Color', cmap(k,:));
+    plot(axLeg, x0 + [0 L], yk - dy*[1 1], '--', 'Color', cmap(k,:));
+    text(axLeg, x0 + L + 0.03, yk, ['{\it a/b} = ' num2str(traj_ab(k), '%.2f')], ...
+         'VerticalAlignment', 'middle', 'FontName', axSep.FontName, 'FontSize', axSep.FontSize);
+end
 
 % ── Panel labels ──────────────────────────────────────────────────────────────
 letters = 'abc';
@@ -199,9 +159,23 @@ for k = 1:Np
     a = aspan(k); b = 1.0/a;
     panel_label(sprintf('\\it (%s) {\\it a/b} \\rm = %.2f', letters(k), a/b), ax(k), -0.2, -0.1);
 end
-panel_label('\it (d) d_{\rm0}\rm = 12', axTraj(1), 0, 0);
-panel_label('\it (e) d_{\rm0}\rm = 18', axTraj(2), 0, 0);
-panel_label('\it (f)', axDist, 0, 0);
+panel_label('\it (d)', axSep, -0.95, 0.2);
+panel_label('\it (e)', axOmg, -0.95, 0.2);
+
+% Far-field ODEs (5.2)-(5.3) for a pair, y = [x1 y1 θ1 x2 y2 θ2], r_ij = x_i - x_j.
+function dy = farfield_rhs(y, uS, beta, lam)
+    X = [y(1) y(2); y(4) y(5)];  th = [y(3) y(6)];
+    dy = zeros(6, 1);
+    for i = 1:2
+        j  = 3 - i;
+        p  = [cos(th(i)); sin(th(i))];  q = [-p(2); p(1)];
+        pj = [cos(th(j)); sin(th(j))];
+        r  = (X(i,:) - X(j,:))';  d = norm(r);  e = r/d;
+        u  = uS*p + beta*(pj - e*(e'*pj))/(4*pi*d);
+        w  = -beta*lam*( -3*(q'*e)*(e'*p)*(e'*pj) + (q'*e)*(pj'*p) + (q'*pj)*(e'*p) )/(4*pi*d^2);
+        dy(3*i-2:3*i) = [u; w];
+    end
+end
 
 function a = panel_label(str, ax, xOffset, yOffset)
     a = annotation('textbox', 'String', str, 'FontName', 'Times', ...

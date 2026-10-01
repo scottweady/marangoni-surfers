@@ -4,7 +4,8 @@ include("../../src/marangoni.jl")
 
 # ── Parameters ────────────────────────────────────────────────────────────────
 
-a = sqrt(1.0/16.0)
+aspect_ratio = 2.0
+a = sqrt(aspect_ratio)
 b = 1.0/a
 α = π/2
 g(θ) = -cos(θ)
@@ -19,8 +20,8 @@ M = 32
 γss(s) = -a * cos(s) - im * b * sin(s)
 
 Ω   = ellipse(a, b, M)
-Γ_D = openarc(γ, γs, γss, Ns; dom=[α, 2π-α])
-Γ_N = openarc(γ, γs, γss, Ns; dom=[-α, α])
+Γ_D = openarc(γ, γs, γss, Ns; dom=[α, 2π-α], quad=:open_weight)
+Γ_N = openarc(γ, γs, γss, Ns; dom=[-α, α], quad=:open)
 
 # ── Solve ─────────────────────────────────────────────────────────────────────
 

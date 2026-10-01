@@ -19,27 +19,30 @@ include("../../src/marangoni.jl")
 α_arc = π/2   # arc angle (Dirichlet domain)
 g(θ) = -cos(θ)  # surfactant distribution
 
-# aspan = [1.0/2.0, 1.0/sqrt(2.0), 1.0, sqrt(2.0), 2.0]
-# aspan = [1.0/4.0, 1.0/2.0, 1.0, 2.0, 4.0]
-aspan = [11.0]
-Δx_range = [2.0]
+aspect_span = [10.0]
+Δx_range = [1.65]
+
+# orient = :parallel
+orient = :antiparallel
 
 # ── Discretization ─────────────────────────────────────────────────────────
-Ns = 128      # arc quadrature points
-M  = 32      # spectral degree for ellipse
+Ns = 64      # arc quadrature points
+M  = 16      # spectral degree for ellipse
 
 # Time integration parameters
-t_max = 1e8  # max simulation time
+t_max = 500  # max simulation time
 dt_max = 1.0   # max time step
 dt_min = 1e-3    # min time step
+nplt = 10        # plot/write every nplt steps
 cfl_scale = 0.5  # safety factor in U*dt < d using boundary-to-boundary gap d
 stop_dist = 1e-2  # stop when nearest boundary-to-boundary distance is below this
 max_separation = Inf  # stop when center-to-center distance exceeds this
 
 # ── Main loop: aspect ratio and separation ───────────────────────────────────
 
-for a in aspan
+for aspect in aspect_span
 
+    a = sqrt(aspect)
     b = 1.0 / a  # fixed area: πab = π
     
     @printf("(a, b) = (%.4f, %.4f)\n", a, b)
@@ -50,8 +53,8 @@ for a in aspan
     γss(s) = -a*cos(s) - im*b*sin(s)
     
     Ω = ellipse(a, b, M)
-    Γ_D = openarc(γ, γs, γss, Ns; dom=[α_arc, 2π - α_arc])
-    Γ_N = openarc(γ, γs, γss, Ns; dom=[-α_arc, α_arc])
+    Γ_D = openarc(γ, γs, γss, Ns; dom=[α_arc, 2π - α_arc], quad=:open_weight)
+    Γ_N = openarc(γ, γs, γss, Ns; dom=[-α_arc, α_arc], quad=:open)
 
     # Boundary points in body frame for nearest-distance checks
     z_boundary_body = vcat(Γ_D.γ, Γ_N.γ)
@@ -67,7 +70,13 @@ for a in aspan
         # ── Initial conditions ───────────────────────────────────────────────
         
         xcm  = [-Δx/2 + 0im, Δx/2 + 0im]   # center of mass positions
-        θcm  = [-π/2, π/2]
+
+        if orient == :parallel
+            θcm  = [π/2, π/2]
+        elseif orient == :antiparallel
+            θcm  = [-π/2, π/2]
+        end
+
         U_all = Vector{Vector{Float64}}(undef, 2)
         
         # Storage for trajectory
@@ -174,6 +183,9 @@ for a in aspan
 
             plt = plot(aspect_ratio=:equal, legend=false, xlabel="x", ylabel="y",
                        title=@sprintf("t = %.2f", t))
+            xlims!(-20, 20)
+            ylims!(-20, 20)
+
             for i in 1:2
                 z_outline = exp(im * θcm[i]) .* z_outline_body .+ xcm[i]
                 z_arc     = exp(im * θcm[i]) .* z_arc_body     .+ xcm[i]
@@ -186,7 +198,7 @@ for a in aspan
             @printf("    step=%d  t=%.6f  dt=%.3e  gap=%.6e\n", step, t, dt, dist)
             
             # Write to file every 10 steps
-            if mod(step, 10) == 0
+            if mod(step, nplt) == 0
                 # Write lines since the last write
                 for i in last_written+1:length(times)
                     t_val = times[i]

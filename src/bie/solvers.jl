@@ -33,9 +33,9 @@ endpoint density weighting of the open-arc quadratures.
 """
 function _jump_term(Γ::Boundary)
     if Γ.quad == :open_weight
-        return Diagonal(1 ./ (2 .* sqrt.(1 .- Γ.t.^2)))
+        return Diagonal(-1 ./ (2 .* sqrt.(1 .- Γ.t.^2)))
     else
-        return 0.5 * I(length(Γ))
+        return -0.5 * I(length(Γ))
     end
 end
 

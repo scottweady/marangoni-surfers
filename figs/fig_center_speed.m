@@ -9,7 +9,7 @@ close all;
 baseDir = fullfile(fileparts(mfilename('fullpath')), '..', 'data', 'collective');
 
 % ---- Speed data -------------------------------------------------------------
-A    = readmatrix(fullfile(baseDir, 'center_speed_vs_Nd.dat'), 'NumHeaderLines', 1);
+A    = readmatrix(fullfile(baseDir, 'center_speed_vs_N.dat'), 'NumHeaderLines', 1);
 N    = A(:,1);
 uN   = A(:,2:end);
 dvals = [5 10 15 20];

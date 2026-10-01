@@ -114,22 +114,20 @@ d        = data(:,1);
 I1_th0   = data(:,2);
 I1_thpi2 = data(:,4);
 d_fine   = linspace(d(1), d(end), 300)';
-fit0     = exp(polyval([-5/4, 0], log(d_fine)));
-fit0     = fit0 * abs(I1_th0(end)/fit0(end));
 
+fit0 = 1./(d_fine.*log(d_fine));
+fit0 = fit0 * abs(I1_th0(end)/fit0(end));
 sp3 = axes(fig);
 hold(sp3, 'on'); box(sp3, 'on');
 
 plot(sp3, d, abs(I1_th0),   'Color', P.c1, 'DisplayName', '{\it \theta} = 0');
 plot(sp3, d, abs(I1_thpi2), 'Color', P.c2, 'DisplayName', '{\it \theta} = {\it \pi}/2');
-plot(sp3, d_fine, fit0, '--', 'Color', [0.2 0.2 0.2], ...
-     'DisplayName', '\propto {\it r}_{12}^{-5/4}');
-
-xlabel(sp3, 'separation, {\it r}_{12}');
+plot(sp3, d_fine, fit0, '--', 'Color', [0.6 0.2 0.2], 'DisplayName', '\propto 1/({\it{r}} log{\it r})')
+xlabel(sp3, 'separation, {\it r}');
 ylabel(sp3, ['monopole, |\sigma' char(773) ' |']);
 legend(sp3, 'Location', 'northeast', 'Color', 'none', 'FontSize', sp3.FontSize);
 xlim(sp3, [0 100]);
-ylim(sp3, [-0.02 0.08]);
+ylim(sp3, [-0.02 0.2]);
 
 % ── Layout ────────────────────────────────────────────────────────────────────
 

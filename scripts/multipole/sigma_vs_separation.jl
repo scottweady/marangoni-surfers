@@ -19,7 +19,7 @@ Ns = 1024
 Γ_D = openarc(γ, γs, γss, Ns; dom=[α, 2π-α])
 Γ_N = openarc(γ, γs, γss, Ns; dom=[-α, α])
 
-separations = range(0.0, 100.0, length=50)[2:end]   # skip d=0 to avoid singularity
+separations = range(2.0, 100.0, length=100)[2:end]   # skip d=0 to avoid singularity
 
 # ── Sweep: θ = 0 ──────────────────────────────────────────────────────────────
 
@@ -58,4 +58,4 @@ open(joinpath(out_dir, "sigma_vs_separation.dat"), "w") do io
     end
 end
 
-println("\nWrote output/sigma_vs_separation.dat")
+println("\nWrote sigma_vs_separation.dat")

@@ -4,11 +4,11 @@ close all
 
 a = sqrt(1.0);
 b = 1.0 / a;
-u_single = 0.098175;
+U = 0.098175;
 
 % ── Load frames ───────────────────────────────────────────────────────────────
 
-dataDir = fullfile(fileparts(mfilename('fullpath')), '..', 'data', 'frames');
+dataDir = fullfile(fileparts(mfilename('fullpath')), '..', 'data', 'patch');
 files   = dir(fullfile(dataDir, 'frame_*.dat'));
 files   = sort({files.name});
 Nframes = numel(files);
@@ -40,20 +40,23 @@ speeds = cell(Nframes, 1);   % speed of each particle at each frame
 
 for k = 1:Nframes
     d  = frames{k};
-    cx = mean(d(:,2));  cy = mean(d(:,3));
+    xbar = mean(d(:,2));
+    ybar = mean(d(:,3));
     tv(k) = d(1,1);
-    Rv(k) = max(hypot(d(:,2) - cx, d(:,3) - cy));
+    Rv(k) = max(hypot(d(:,2) - xbar, d(:,3) - ybar));
 end
 
 for k = 1:Nframes
     d  = frames{k};
-    cx = mean(d(:,2));  cy = mean(d(:,3));
-    rx = d(:,2) - cx;   ry = d(:,3) - cy;
+    xbar = mean(d(:,2));
+    ybar = mean(d(:,3));
+    rx = d(:,2) - xbar;
+    ry = d(:,3) - ybar;
     r  = hypot(rx, ry);
     speeds{k} = (d(:,5).*rx + d(:,6).*ry) ./ r;   % radial component of velocity
 end
 
-mean_speed = cellfun(@mean, speeds);
+Ubar = cellfun(@mean, speeds);
 
 % ── Figure ───────────────────────────────────────────────────────────────────
 
@@ -67,7 +70,7 @@ line_col  = P.col;
 
 % Col 1a: radius vs time
 sp_R = axes(fig); hold(sp_R, 'on'); box(sp_R, 'on');
-plot(sp_R, tv, Rv/Rv(1), 'o-', 'Color', line_col);
+plot(sp_R, tv, Rv/Rv(1), '-', 'Color', line_col);
 ylabel(sp_R, '{\it R}/{\it R}_0');
 xlim(sp_R, [0, tf]);
 ylim(sp_R, [0, max(Rv)/Rv(1)*1.1]);
@@ -75,11 +78,12 @@ set(sp_R, 'XTickLabel', {});
 
 % Col 1b: mean speed vs time
 sp_V = axes(fig); hold(sp_V, 'on'); box(sp_V, 'on');
-plot(sp_V, tv, mean_speed/u_single, 'o-', 'Color', line_col);
+plot(sp_V, tv, Ubar/U, '-', 'Color', line_col);
 xlabel(sp_V, 'time, {\it t}');
 ylabel(sp_V, '\langle |{\it\bf u}_{cm}| \rangle / |{\it\bf u}_{cm,0}|');
 xlim(sp_V, [0, tf]);
-ylim(sp_V, [1 1.4]);
+ylim(sp_V, [1 1.5]);
+yticks([1 1.25 1.5]);
 
 % Col 2: particle configurations at t=0 and t=final
 sp_C = axes(fig); hold(sp_C, 'on'); axis(sp_C, 'equal');
@@ -90,21 +94,21 @@ snap_cols = [dist_cmap(1,:); dist_cmap(3,:)];
 % Shaded extents (drawn first so particles appear on top)
 th_ring  = linspace(0, 2*pi, 256);
 d0_      = frames{1};       dN_      = frames{end};
-cx0_     = mean(d0_(:,2));  cy0_     = mean(d0_(:,3));
-cxN_     = mean(dN_(:,2));  cyN_     = mean(dN_(:,3));
-R0_max   = max(hypot(d0_(:,2)-cx0_, d0_(:,3)-cy0_));
-RN_min   = min(hypot(dN_(:,2)-cxN_, dN_(:,3)-cyN_));
-RN_max   = max(hypot(dN_(:,2)-cxN_, dN_(:,3)-cyN_));
+xbar0_     = mean(d0_(:,2));  ybar0_     = mean(d0_(:,3));
+xbarN_     = mean(dN_(:,2));  ybarN_     = mean(dN_(:,3));
+R0_max   = max(hypot(d0_(:,2)-xbar0_, d0_(:,3)-ybar0_));
+RN_min   = min(hypot(dN_(:,2)-xbarN_, dN_(:,3)-ybarN_));
+RN_max   = max(hypot(dN_(:,2)-xbarN_, dN_(:,3)-ybarN_));
 
-fill(sp_C, cx0_ + R0_max*cos(th_ring), cy0_ + R0_max*sin(th_ring), ...
+fill(sp_C, xbar0_ + R0_max*cos(th_ring), ybar0_ + R0_max*sin(th_ring), ...
      snap_cols(1,:), 'EdgeColor', 'none', 'FaceAlpha', 0.15);
 
 for sgn = [1, -1]
     th_half = linspace(0, sgn*pi, 128);
-    xo_ = cxN_ + RN_max*cos(th_half);
-    yo_ = cyN_ + RN_max*sin(th_half);
-    xi_ = cxN_ + RN_min*cos(fliplr(th_half));
-    yi_ = cyN_ + RN_min*sin(fliplr(th_half));
+    xo_ = xbarN_ + RN_max*cos(th_half);
+    yo_ = ybarN_ + RN_max*sin(th_half);
+    xi_ = xbarN_ + RN_min*cos(fliplr(th_half));
+    yi_ = ybarN_ + RN_min*sin(fliplr(th_half));
     fill(sp_C, [xo_, xi_], [yo_, yi_], snap_cols(2,:), 'EdgeColor', 'none', 'FaceAlpha', 0.15);
 end
 
@@ -132,35 +136,35 @@ text(sp_C, sb_x0 + sb_len/2, sb_y + 0.02*diff(ylims), '25{\it R}', ...
 
 % Arrows at exact angles 0, pi/4, ..., 7pi/4
 d0  = frames{1};    dN = frames{end};
-cx0 = mean(d0(:,2)); cy0 = mean(d0(:,3));
-cxN = mean(dN(:,2)); cyN = mean(dN(:,3));
-R1  = max(hypot(d0(:,2)-cx0, d0(:,3)-cy0));
-R2  = min(hypot(dN(:,2)-cxN, dN(:,3)-cyN));
+xbar0 = mean(d0(:,2)); ybar0 = mean(d0(:,3));
+xbarN = mean(dN(:,2)); ybarN = mean(dN(:,3));
+R1  = max(hypot(d0(:,2)-xbar0, d0(:,3)-ybar0));
+R2  = min(hypot(dN(:,2)-xbarN, dN(:,3)-ybarN));
 phi = (0:7)' * pi/4;
 dR = 5;
-x0v = cx0 + (R1+dR)*cos(phi);  y0v = cy0 + (R1+dR)*sin(phi);
-xNv = cxN + (R2-dR)*cos(phi);  yNv = cyN + (R2-dR)*sin(phi);
+x0v = xbar0 + (R1+dR)*cos(phi);  y0v = ybar0 + (R1+dR)*sin(phi);
+xNv = xbarN + (R2-dR)*cos(phi);  yNv = ybarN + (R2-dR)*sin(phi);
 h = quiver(sp_C, x0v, y0v, xNv-x0v, yNv-y0v, 0, 'Color', [0.5 0.5 0.5]);
 h.Color = 'k';  h.LineWidth = 1;  h.MaxHeadSize = 0.1;
 
 % Col 3: three stacked speed distributions
-snap_idx = 1 + [0 25 50];
+snap_idx = 1 + [0 60 120];
 
 sp_v = [axes(fig), axes(fig), axes(fig)];
 for j = 1:3
     hold(sp_v(j), 'on'); box(sp_v(j), 'on');
     k = snap_idx(j);
-    histogram(sp_v(j), speeds{k}/u_single, 51/3, 'Normalization', 'pdf', ...
+    histogram(sp_v(j), speeds{k}/U, 10, 'Normalization', 'pdf', ...
               'FaceColor', dist_cmap(j,:), 'EdgeColor', 'none');
-    xlim(sp_v(j), [0.5 1.5]);
+    xlim(sp_v(j), [0 2]);
     ylabel(sp_v(j), 'pdf');
-    text(sp_v(j), 0.03, 0.08, sprintf('{\\it t} = %.2f', tv(k)), ...
+    text(sp_v(j), 0.03, 0.08, sprintf('{\\it t} = %.0f', tv(k)), ...
          'Units', 'normalized', 'HorizontalAlignment', 'left', ...
          'VerticalAlignment', 'bottom', 'BackgroundColor', 'w', 'Margin', 2, ...
          'FontSize', sp_v(j).FontSize);
-    set(sp_v(j), 'XTick', 0.5:0.5:1.5);
+    set(sp_v(j), 'XTick', 0:0.5:2);
     if j == 3
-        xlabel(sp_v(j), 'speed, |{\it\bf u}_{cm}| / |{\it\bf u}_{cm,0}|');
+        xlabel(sp_v(j), 'speed, |{\it\bf u}_{cm}| / {\it{U}}');
     else
         set(sp_v(j), 'XTickLabel', {});
         set(sp_v(j), 'XTick', []);

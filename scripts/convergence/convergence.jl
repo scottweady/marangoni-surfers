@@ -1,61 +1,22 @@
 
-
-# Convergence of the single-particle solver against the semi-analytical velocity
-#
-#     u_cm,i = (m_i - m_0) / (2π a b) ∫_Γ xᵢ σ dΓ,
-#
-#     m_0 = (b/2) K(ε),   m_1 = b/(2ε²) [K(ε) - E(ε)],   ε = sqrt(1 - (b/a)²),
-#
-# with K, E the complete elliptic integrals of the first and second kind, valid
-# for a ≥ b; the oblate case a < b is handled by `ellipse_mobility` below. This
-# expression involves only the surfactant density σ on Γ, so it depends on the
-# boundary resolution N and not on the interior (expansion) discretization M.
-# The reference value u* is therefore obtained from a surfactant solve alone,
-# at N = Ns_ref, with no Stokes solve required.
-#
-# Two independent sweeps are performed for each aspect ratio a/b:
-#
-#   (i)  expansion order M, with the boundary held at N = Ns_ref. The σ error
-#        cancels against the reference, leaving the interior discretization error.
-#   (ii) boundary resolution N, with the expansion held at M = M_ref.
-#
-# Aspect ratios are swept at fixed area (ab = 1), consistent with the length
-# scale ℓ_c = (|Ω|/π)^(1/2), and cover both prolate (a > b) and oblate (a < b)
-# particles.
-
 include("../../src/marangoni.jl")
 
 using SpecialFunctions: ellipk, ellipe
 
-# ── Parameters ────────────────────────────────────────────────────────────────
+##### Parameters #####
 
 α = π/2
 g(θ) = exp.(-cos(θ))
 
 ratios = [0.25, 0.5, 1.0, 2.0, 4.0]  # a/b, at fixed area ab = 1
 
-Ns_ref = 2048                        # reference boundary resolution
-M_ref  = 32                          # reference expansion order
+Ns_ref = 2048
+M_ref  = 32
 
-Mspan = 2:2:32                       # expansion order sweep
-Nspan = Int.(2.0.^(2:10))                       # boundary resolution sweep
+Mspan = 2:2:32
+Nspan = Int.(2.0.^(2:10)) # boundary resolution sweep
 
-# ── Semi-analytical solution ──────────────────────────────────────────────────
-
-"""
-    ellipse_mobility(a, b)
-
-Prefactor `(m₁ - m₀) / (2π a b)` in the semi-analytical center-of-mass velocity
-for an ellipse with semi-axes `a` (along the propulsion axis `x₁`) and `b`.
-
-The formulas of the manuscript are written for a major axis `a ≥ b`, in which
-case the propulsion axis is the major axis and `m₁ = b/(2ε²)[K - E]`. For an
-oblate particle, `a < b`, the axes are relabelled `1 ↔ 2`: the minor semi-axis
-is now `a`, the eccentricity is `ε² = 1 - (a/b)²`, and the coefficient along the
-propulsion axis is the minor-axis one, `m₂ = a/(2ε²)[E - (1 - ε²)K]`. Both
-branches share the `ε → 0` (disk) limit `m₁ - m₀ = -π min(a,b) / 8`, taken
-directly to avoid the `0/0` form.
-"""
+##### Solution from resistance formulation #####
 function ellipse_mobility(a, b)
     Δm = if abs(a - b) < 1e-8 * (a + b)
         -π * min(a, b) / 8
@@ -69,17 +30,11 @@ function ellipse_mobility(a, b)
     return Δm / (2π * a * b)
 end
 
-"""
-    semi_analytical(σ, Γ, a, b)
-
-Semi-analytical propulsion speed `u_cm,1` from the surfactant density `σ` on the
-placed boundaries `Γ = [Γ_D, Γ_N]`.
-"""
 semi_analytical(σ, Γ, a, b) =
     ellipse_mobility(a, b) * (integral(real.(Γ[1].γ) .* σ[1], Γ[1]) +
                               integral(real.(Γ[2].γ) .* σ[2], Γ[2]))
 
-# ── Sweep ─────────────────────────────────────────────────────────────────────
+##### Main loop #####
 
 err_M = zeros(length(Mspan), length(ratios))
 err_N = zeros(length(Nspan), length(ratios))
@@ -94,9 +49,9 @@ for (j, ratio) in enumerate(ratios)
     γs(s)  = -a * sin(s) + im * b * cos(s)
     γss(s) = -a * cos(s) - im * b * sin(s)
 
-    # Reference: semi-analytical velocity from a highly resolved surfactant solve
-    Γ_D_ref = openarc(γ, γs, γss, Ns_ref; dom=[α, 2π-α])
-    Γ_N_ref = openarc(γ, γs, γss, Ns_ref; dom=[-α, α])
+    # Reference from a highly resolved surfactant solve
+    Γ_D_ref = openarc(γ, γs, γss, Ns_ref; dom=[α, 2π-α], quad=:open_weight)
+    Γ_N_ref = openarc(γ, γs, γss, Ns_ref; dom=[-α, α], quad=:open)
 
     σ_ref, _, Γ_ref = surfactant_solve([0.0im], [0.0], Γ_D_ref, Γ_N_ref, g)
     u_ref = semi_analytical(σ_ref, Γ_ref, a, b)
@@ -117,8 +72,8 @@ for (j, ratio) in enumerate(ratios)
     Ω_ref = ellipse(a, b, M_ref)
     println("  boundary resolution N (M = $M_ref):")
     for (i, Ns) in enumerate(Nspan)
-        Γ_D = openarc(γ, γs, γss, Ns; dom=[α, 2π-α])
-        Γ_N = openarc(γ, γs, γss, Ns; dom=[-α, α])
+        Γ_D = openarc(γ, γs, γss, Ns; dom=[α, 2π-α], quad=:open_weight)
+        Γ_N = openarc(γ, γs, γss, Ns; dom=[-α, α], quad=:open)
         U, _, _, _ = marangoni_solve(Ω_ref, Γ_D, Γ_N, g)
         err_N[i, j] = abs(U[1] - u_ref)
         @printf("    N = %3d:  u = %+.15e  err = %.6e\n", Ns, U[1], err_N[i, j])
@@ -126,9 +81,9 @@ for (j, ratio) in enumerate(ratios)
 
 end
 
-# ── Write results ─────────────────────────────────────────────────────────────
+##### Write results #####
 
-outdir = joinpath(@__DIR__, "output")
+outdir = joinpath(@__DIR__, "../../data/convergence")
 mkpath(outdir)
 
 function write_errors(filename, label, span, err)
@@ -153,7 +108,7 @@ end
 write_errors("convergence_expansion.dat", "M", Mspan, err_M)
 write_errors("convergence_boundary.dat", "N", Nspan, err_N)
 
-# ── Plot ──────────────────────────────────────────────────────────────────────
+##### Plot results #####
 
 labels = reshape(["a/b = $(ratio)" for ratio in ratios], 1, :)
 

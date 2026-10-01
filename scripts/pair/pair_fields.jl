@@ -56,7 +56,7 @@ for a in aspan
     Γ_N = openarc(γ, γs, γss, Ns; dom=[-α_arc, α_arc])
 
     xcm = [-Δx/2 + 0im, Δx/2 + 0im]
-    θcm = [-π/2, π/2]
+    θcm = [π/2, π/2]
 
     # ── Solve: surfactant + Stokes mobility ─────────────────────────────────
 
