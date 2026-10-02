@@ -147,34 +147,42 @@ xNv = xbarN + (R2-dR)*cos(phi);  yNv = ybarN + (R2-dR)*sin(phi);
 h = quiver(sp_C, x0v, y0v, xNv-x0v, yNv-y0v, 0, 'Color', [0.5 0.5 0.5]);
 h.Color = 'k';  h.LineWidth = 1;  h.MaxHeadSize = 0.1;
 
-% Col 3: three stacked speed distributions
-snap_idx = 1 + [0 60 120];
+% Col 3: surfactant concentration snapshot (from expansion_snapshot.jl)
+fid  = fopen(fullfile(dataDir, 'expansion_snapshot.dat'));
+hdr  = fgetl(fid);
+Nx   = str2double(regexp(hdr, 'Nx=(\d+)', 'tokens', 'once'));
+Ny   = str2double(regexp(hdr, 'Ny=(\d+)', 'tokens', 'once'));
+t_S  = str2double(regexp(hdr, 't=([\d.]+)', 'tokens', 'once'));
+xplt = str2num(fgetl(fid));  %#ok<ST2NM>
+yplt = str2num(fgetl(fid));  %#ok<ST2NM>
+phiS = fscanf(fid, '%f', [Nx, Ny])';
+fclose(fid);
 
-sp_v = [axes(fig), axes(fig), axes(fig)];
-for j = 1:3
-    hold(sp_v(j), 'on'); box(sp_v(j), 'on');
-    k = snap_idx(j);
-    histogram(sp_v(j), speeds{k}/U, 10, 'Normalization', 'pdf', ...
-              'FaceColor', dist_cmap(j,:), 'EdgeColor', 'none');
-    xlim(sp_v(j), [0 2]);
-    ylabel(sp_v(j), 'pdf');
-    text(sp_v(j), 0.03, 0.08, sprintf('{\\it t} = %.0f', tv(k)), ...
-         'Units', 'normalized', 'HorizontalAlignment', 'left', ...
-         'VerticalAlignment', 'bottom', 'BackgroundColor', 'w', 'Margin', 2, ...
-         'FontSize', sp_v(j).FontSize);
-    set(sp_v(j), 'XTick', 0:0.5:2);
-    if j == 3
-        xlabel(sp_v(j), 'speed, |{\it\bf u}_{cm}| / {\it{U}}');
-    else
-        set(sp_v(j), 'XTickLabel', {});
-        set(sp_v(j), 'XTick', []);
-    end
+sp_S = axes(fig); hold(sp_S, 'on'); box(sp_S, 'on');
+imagesc(sp_S, xplt, yplt, phiS, 'AlphaData', ~isnan(phiS));
+sp_S.YDir = 'normal';
+axis(sp_S, 'equal'); axis(sp_S, 'tight');
+set(sp_S, 'XTick', [], 'YTick', []);
+colormap(sp_S, P.cmap());
+clim(sp_S, [0 1]);
+cb = colorbar(sp_S, 'Location', 'eastoutside', 'Ticks', 0:0.5:1);
+cb.Title.String = '\phi';
+
+[~, kS] = min(abs(tv - t_S));
+dS = frames{kS};
+for i = 1:size(dS, 1)
+    R  = [cos(dS(i,4)) -sin(dS(i,4)); sin(dS(i,4)) cos(dS(i,4))];
+    xy = R * [ex; ey];
+    fill(sp_S, dS(i,2)+xy(1,:), dS(i,3)+xy(2,:), 'w', 'EdgeColor', 'k', 'LineWidth', 0.5);
 end
+text(sp_S, 0.97, 0.03, sprintf('{\\it t} = %.0f', t_S), 'Units', 'normalized', ...
+     'HorizontalAlignment', 'right', 'VerticalAlignment', 'bottom', ...
+     'Color', 'w', 'FontSize', sp_S.FontSize);
 
 % ── Layout ────────────────────────────────────────────────────────────────────
 
 lm = 0.2;   % left margin
-rm = 0.20;   % right margin
+rm = 0.80;   % right margin (room for colorbar)
 bm = 0.80;   % bottom margin
 tm = 0.0;   % top margin
 cg = 1.00;   % gap between columns
@@ -189,14 +197,12 @@ panelH  = figH - bm - tm;
 % Height of (a) after axis equal: data fills panelW in x, height follows
 height_C = diff(ylims) / diff(xlims) * panelW;
 halfH    = (height_C - vg) / 2;
-sg       = 0.25;   % vertical gap between stacked right panels
-stackH   = (height_C - 2*sg) / 3;
 
 col1x = lm;
 col2x = lm +   panelW + cg;
 col3x = lm + 2*panelW + 2*cg;
 
-for ax = [sp_R, sp_V, sp_C, sp_v(1), sp_v(2), sp_v(3)]
+for ax = [sp_R, sp_V, sp_C, sp_S]
     ax.Units = 'inches';
     ax.ActivePositionProperty = 'position';
 end
@@ -205,18 +211,14 @@ sp_C.Position = [col1x, bm,              panelW, height_C];
 sp_R.Position = [col2x, bm + halfH + vg, panelW, halfH];
 sp_V.Position = [col2x, bm,              panelW, halfH];
 
-sp_v(1).Position = [col3x, bm + 2*(stackH+sg), panelW, stackH];
-sp_v(2).Position = [col3x, bm +   (stackH+sg), panelW, stackH];
-sp_v(3).Position = [col3x, bm,                 panelW, stackH];
+sp_S.Position = [col3x, bm,              panelW, height_C];
 
 % ── Panel labels ──────────────────────────────────────────────────────────────
 
 panel_label('(a)', sp_C);
 panel_label('(b)', sp_R);
 panel_label('(c)', sp_V);
-panel_label('(d)', sp_v(1));
-panel_label('(e)', sp_v(2));
-panel_label('(f)', sp_v(3));
+panel_label('(d)', sp_S);
 
 function panel_label(str, ax)
     text(ax, 0.01, 0.99, ['\it ' str], 'Units', 'normalized', ...

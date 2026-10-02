@@ -2,15 +2,17 @@
 # ── Close evaluation ──────────────────────────────────────────────────────────
 
 """
-    _find_preimage(ζ, Γ; maxiter=20, tol=1e-15, verbose=false)
+    _find_preimage(ζ, Γ; maxiter=20, tol=1e-15, verbose=false, t_init=nothing)
 
 Find the complex preimage `t` of `ζ` under `γ` via Halley's method on a truncated
 Chebyshev interpolant.
 
 Truncates the interpolant to `min(length(Γ), 32)` Chebyshev modes to cap Clenshaw
 amplification outside `[-1,1]` (`T_k(t) ~ cosh(k·cosh⁻¹|t|)`; 32 terms limits
-amplification to ~87 at `|t|=1.013`), and starts from the affine chord-map inverse
-(Klinteberg 2020, eq. 30).
+amplification to ~87 at `|t|=1.013`), and by default starts from the affine chord-map
+inverse (Klinteberg 2020, eq. 30). For strongly curved arcs (e.g. a half ellipse) the
+chord-map guess can converge to a spurious preimage; pass `t_init` (e.g. the parameter
+of the nearest node) to avoid this.
 
 # Arguments
 - `ζ`: target point in the complex plane.
@@ -18,11 +20,12 @@ amplification to ~87 at `|t|=1.013`), and starts from the affine chord-map inver
 - `maxiter`: maximum Halley iterations (default `20`).
 - `tol`: convergence tolerance on `|γ(t) - ζ|` (default `1e-15`).
 - `verbose`: print iteration diagnostics if `true` (default `false`).
+- `t_init`: initial guess for `t` (default `nothing`, use the chord-map inverse).
 
 # Returns
 - `(t, isconverged)`: the preimage and whether `|γ(t) - ζ| < tol` was reached.
 """
-function _find_preimage(ζ, Γ::Boundary; maxiter=20, tol=1e-15, verbose=false)
+function _find_preimage(ζ, Γ::Boundary; maxiter=20, tol=1e-15, verbose=false, t_init=nothing)
 
     Nroots = min(length(Γ), 32)
     γ̂   = _cheb_coeffs(Γ.γ;   Nmax=Nroots)
@@ -31,7 +34,7 @@ function _find_preimage(ζ, Γ::Boundary; maxiter=20, tol=1e-15, verbose=false)
 
     τ₀ = (Γ.γ[end] + Γ.γ[1]) / 2
     s₀ = (Γ.γ[end] - Γ.γ[1]) / 2
-    t  = (ζ - τ₀) / s₀
+    t  = t_init === nothing ? (ζ - τ₀) / s₀ : complex(t_init)
     Q  = _cheb_eval(γ̂, t) - ζ
 
     verbose && println("  iter   0:  t = ", real(t), " + ", imag(t), "i  |Q| = ", abs(Q))
