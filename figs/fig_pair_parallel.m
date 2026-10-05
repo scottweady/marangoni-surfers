@@ -107,8 +107,6 @@ for k = 1:numel(files)
         plot(axOmg, t(end), ang1(end) - pi/2, 'o', 'Color', c, 'MarkerFaceColor', 'w', 'HandleVisibility', 'off');
         % plot(axOmg, t(end), ang2(end) - pi/2, 'o', 'Color', c, 'MarkerFaceColor', 'w', 'HandleVisibility', 'off');
     end
-
-    disp(['Processing trajectory ' num2str(k) ' of ' num2str(numel(files))]);
     [U, eta, beta] = single_particle(a_vals(k)/b_vals(k));
     opts = odeset('RelTol', 1e-12, 'AbsTol', 1e-12);
     [tf, Y] = ode45(@(~, y) farfield_rhs(y, U, eta, beta), [0 500], A(1, 2:7)', opts);

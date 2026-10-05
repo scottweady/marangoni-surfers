@@ -67,7 +67,6 @@ end
 
 outdir = joinpath(@__DIR__, "output", "frames_$(round(a/b, digits=4))")
 isdir(outdir) && rm(outdir; recursive=true)
-println("Running simulation...")
 traj_xcm, traj_θcm, traj_t = suspension_simulate(xcm, θcm, Ω, Γ_D, Γ_N, g;
                                                  t_end=200.0, dt_max=5.0, plot_every=5.0,
                                                  plot_dir=outdir)

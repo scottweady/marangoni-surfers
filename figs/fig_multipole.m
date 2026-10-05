@@ -1,10 +1,11 @@
 % fig_multipole_flows.m  —  Three-panel illustration of multipole expansion
 %   (a) monopole flow: u = -r_hat
 %   (b) dipole  flow: u = -(I - r_hat*r_hat)*e_y / r
-%   (c) monopole coefficient vs separation (from sigma_vs_separation.dat)
+%   (c) monopole coefficient vs separation (from monopole_vs_separation.dat)
 
 close all
 
+warning('off')
 fig = journal_figure([6.75 2], 2, 'tex');
 
 P = palette();
@@ -109,7 +110,7 @@ cb = colorbar(sp2, 'Ticks', [0, clim_max], 'TickLabels', {'0', '|{\it\bf u}|_{ma
 % ── (c) Monopole coefficient vs separation ────────────────────────────────────
 
 dataDir = fullfile(dataRoot, 'multipole');
-data     = load(fullfile(dataDir, 'sigma_vs_separation.dat'));
+data     = load(fullfile(dataDir, 'monopole_vs_separation.dat'));
 d        = data(:,1);
 I1_th0   = data(:,2);
 I1_thpi2 = data(:,4);
@@ -168,6 +169,8 @@ cb.Position = [sp2.Position(1) + sp2.Position(3) + 0.12, bm, 0.12, panelH];
 a = panel_label('{\it (a)}', sp1, -0.65, 0.05);
 b = panel_label('{\it (b)}', sp2, -0.5, 0.05);
 c = panel_label('{\it (c)}', sp3, -0.11, 0.05);
+
+warning('on')
 
 function arrowhead(ax, x, y, ang)
     sz = 0.25;

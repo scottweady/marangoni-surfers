@@ -4,7 +4,8 @@
                         t_end=10.0, dt_min=1e-4, dt_max=10.0, safety=0.5,
                         plot_every=10.0, plot_mode=:concentration,
                         output_file="", plot_dir="", tol=1e-3,
-                        colors=fill(:white, length(xcm0)), cmap=:viridis, pad=4.0)
+                        colors=fill(:white, length(xcm0)), cmap=:viridis, pad=4.0,
+                        verbose=true)
 
 Time-integrate a suspension of Marangoni surfers with adaptive-step RK2.
 
@@ -39,6 +40,7 @@ approaching) the step is limited by gap / closing-speed, scaled by `safety` and 
 - `cmap`: heatmap colormap (default `:viridis`).
 - `pad`: margin added around the current particle centers when computing each frame's
   plot extent, so all particles stay in view as they move (default `4.0`).
+- `verbose`: print the time and step size after each step (default `true`).
 
 # Returns
 - `(traj_xcm, traj_θcm, traj_t)`: the recorded trajectory of particle centers,
@@ -55,7 +57,8 @@ function suspension_simulate(xcm0, θcm0, Ω, Γ_D::Boundary, Γ_N::Boundary, g;
                   tol=1e-3,
                   colors=fill(:white, length(xcm0)),
                   cmap=:viridis,
-                  pad=4.0)
+                  pad=4.0,
+                  verbose=true)
 
     xcm, θcm = copy(xcm0), copy(θcm0)
     Nparticles = length(xcm)
@@ -146,7 +149,7 @@ function suspension_simulate(xcm0, θcm0, Ω, Γ_D::Boundary, Γ_N::Boundary, g;
         push!(traj_θcm, copy(θcm))
         push!(traj_t,   t)
 
-        @printf("  t = %.4f  dt = %.2e\n", t, dt_next)
+        verbose && @printf("t = %10.4f   dt = %.2e\n", t, dt_next)
 
         frame = lpad(length(traj_t), 6, '0')
         if t >= next_plot

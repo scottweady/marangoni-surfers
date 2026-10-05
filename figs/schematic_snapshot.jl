@@ -77,7 +77,6 @@ hw   = maximum(max.(abs.(real.(xcm .- c)), abs.(imag.(xcm .- c)))) + 4.0
 Nplt = 400
 xplt = range(real(c) - hw, real(c) + hw, length=Nplt)
 yplt = range(imag(c) - hw, imag(c) + hw, length=Nplt)
-println("Evaluating field on $(Nplt)×$(Nplt) grid...")
 ϕ = field(xplt, yplt)
 
 # Zoom on the particle closest to the center of the configuration
@@ -86,7 +85,6 @@ hz    = 2.5
 Nz    = 300
 xz    = range(real(xcm[k]) - hz, real(xcm[k]) + hz, length=Nz)
 yz    = range(imag(xcm[k]) - hz, imag(xcm[k]) + hz, length=Nz)
-println("Evaluating zoom field on $(Nz)×$(Nz) grid...")
 ϕz = field(xz, yz)
 
 # Boundary concentration of particle k (midpoints avoid the arc endpoints)
@@ -95,10 +93,6 @@ sb = range(-π/2, 3π/2, length=Nb+1)
 sb = (sb[1:end-1] .+ sb[2:end]) ./ 2
 ϕb = [ϕ_eval(xcm[k] + exp(im * θcm[k]) * γ(s)) for s in sb]
 
-onD = sb .> π/2
-@printf("Zoom particle k = %d\n", k)
-@printf("Max |ϕ - g| on Γ_D: %.2e\n", maximum(abs.(ϕb[onD] .- g.(sb[onD]))))
-@printf("Field range: [%.3f, %.3f]\n", minimum(filter(!isnan, ϕ)), maximum(filter(!isnan, ϕ)))
 
 # -- Write results -------------------------------------------------------------
 
@@ -124,4 +118,4 @@ open(outfile, "w") do io
     write_row(io, ϕb)
 end
 
-println("Written to $outfile")
+println("Wrote ", relpath(outfile, @__DIR__))

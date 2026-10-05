@@ -3,8 +3,15 @@ close all
 
 fig = journal_figure([6.75 2.5], 2, 'tex');
 
-load(fullfile(dataRoot, 'stability', 'growth_rate.mat'));
-eta = beta;  beta = lambda;   % stored as beta (dipole) and lambda (Bretherton)
+fid   = fopen(fullfile(dataRoot, 'stability', 'vonmises_growth_rate.dat'));
+hdr   = fgetl(fid);
+param = @(name) str2double(regexp(hdr, [' ' name '=(\S+)'], 'tokens', 'once'));
+beta  = param('beta');  U = param('U');  eta = param('eta');
+kh    = str2num(fgetl(fid));  %#ok<ST2NM>
+ph    = str2num(fgetl(fid));  %#ok<ST2NM>
+zetas = str2num(fgetl(fid));  %#ok<ST2NM>
+Smax  = arrayfun(@(~) fscanf(fid, '%f', [numel(kh), numel(ph)])', zetas, 'UniformOutput', false);
+fclose(fid);
 
 [K, PH] = meshgrid(kh, ph);
 
@@ -17,7 +24,7 @@ pc = linspace(0, pi/2, 200);
 kc = eta*(1 - beta*sin(pc).^2).^2 ./ (8*beta*U*sin(pc).^2);
 
 t = linspace(-pi, pi, 400);
-psi_0 = @(kappa) exp(kappa*cos(t)) / (2*pi*besseli(0, kappa));
+psi_0 = @(zeta) exp(zeta*cos(t)) / (2*pi*besseli(0, zeta));
 
 labels = {'\it (a)', '\it (b)', '\it (c)'};
 
@@ -93,10 +100,10 @@ for j = 1 : 3
 
     axi = axes(fig, 'Units', 'inches', 'Position', [sum(ax(j).Position([1 3])) - wi - 0.1, sum(ax(j).Position([2 4])) - hi - 0.1, wi, hi]);
     hold(axi, 'on'); box(axi, 'on');
-    plot(axi, t, psi_0(kappas(j)), 'k');
+    plot(axi, t, psi_0(zetas(j)), 'k');
 
     xlim(axi, [-pi pi]); 
-    ylim(axi, [0 1.1*max(psi_0(max(kappas)))]);
+    ylim(axi, [0 1.1*max(psi_0(max(zetas)))]);
 
     xticks(axi, [-pi 0 pi]); xticklabels(axi, {'-\pi', '0', '\pi'});
     yticks(axi, []);
@@ -105,7 +112,7 @@ for j = 1 : 3
     ylabel(axi, '{\it \psi_0}');
     
     axi.FontSize = 0.85*ax(j).FontSize;
-    text(axi, 0.95, 0.95, sprintf('{\\it \\zeta} = %g', kappas(j)), 'Units', 'normalized', 'HorizontalAlignment', 'right', 'VerticalAlignment', 'top', 'FontSize', axi.FontSize);
+    text(axi, 0.95, 0.95, sprintf('{\\it \\zeta} = %g', zetas(j)), 'Units', 'normalized', 'HorizontalAlignment', 'right', 'VerticalAlignment', 'top', 'FontSize', axi.FontSize);
     
 end
 

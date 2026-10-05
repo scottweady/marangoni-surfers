@@ -1,7 +1,8 @@
-# Surfactant concentration and surface velocity fields for a parallel pair of elliptical
-# surfers separated by `Δx` along the x-axis, sweeping `aspect_ratios` at fixed area.
+# Surfactant concentration and surface velocity fields for a pair of elliptical surfers
+# separated by `Δx` along the x-axis, parallel or antiparallel (`orient`), sweeping
+# `aspect_ratios` at fixed area.
 #
-# Output: output/fields_a<a>_b<b>.dat, one file per aspect ratio
+# Output: output/<orient>/fields_a<a>_b<b>.dat, one file per aspect ratio
 #   Line 1: # Nx=... Ny=... a=... b=... d=...
 #   Line 2: x values (Nx floats)
 #   Line 3: y values (Ny floats)
@@ -17,7 +18,8 @@ s₀   = π/2
 g(s) = -cos(s)
 
 aspect_ratios = [0.25, 1.0, 4.0]
-Δx = 8.0  # initial center-to-center separation
+Δx            = 8.0             # center-to-center separation
+orient        = :parallel       # or :antiparallel
 
 # -- Discretization ------------------------------------------------------------
 
@@ -29,7 +31,7 @@ M  = 32       # Stokes expansion order
 pad  = 10.0
 Nplt = 512
 
-outdir = joinpath(@__DIR__, "output")
+outdir = joinpath(@__DIR__, "output", string(orient))
 mkpath(outdir)
 
 # -- Main loop over aspect ratio -----------------------------------------------
@@ -39,18 +41,17 @@ for aspect_ratio in aspect_ratios
     a = sqrt(aspect_ratio)
     b = 1.0 / a
 
-    @printf("(a, b) = (%.4f, %.4f)\n", a, b)
+    @printf("a/b = %g\n", aspect_ratio)
 
     Ω, Γ_D, Γ_N = surfer(a, b, s₀, Ns, M)
     inside(z) = (real(z) / a)^2 + (imag(z) / b)^2 < 1
 
     xcm = [-Δx/2 + 0im, Δx/2 + 0im]
-    θcm = [π/2, π/2]
+    θcm = orient == :parallel ? [π/2, π/2] : [-π/2, π/2]
 
     # -- Solve ---------------------------------------------------------------
 
     U, σ, Γ, ϕinf, f = marangoni_solve(xcm, θcm, Ω, Γ_D, Γ_N, g)
-    @printf("  U[1] = %s\n", U[1])
 
     # -- Evaluate concentration and velocity on grid ---------------------------
 
@@ -78,8 +79,6 @@ for aspect_ratio in aspect_ratios
         write_matrix(io, v, Nplt)
     end
 
-    println("  Wrote $outfile")
+    println("Wrote ", relpath(outfile, @__DIR__))
 
 end
-
-println("\nDone.")

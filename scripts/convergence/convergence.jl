@@ -57,26 +57,26 @@ for (j, aspect_ratio) in enumerate(aspect_ratios)
     u_ref = u_exact(a, b)
     Uref[j] = u_ref
 
-    @printf("\na/b = %.4f (a = %.6f, b = %.6f):  u* = %.15e\n", aspect_ratio, a, b, u_ref)
+    @printf("\na/b = %g   exact U = %.10f\n", aspect_ratio, u_ref)
 
     # (i) Expansion order M, boundary fixed at a well-resolved Ns_ref
     Γ_D_ref, Γ_N_ref = surfer_boundary(a, b, s₀, Ns_ref)
-    println("  expansion order M (N = $Ns_ref):")
+    @printf("  expansion order (Ns = %d)\n%8s%14s\n", Ns_ref, "M", "error")
     for (i, M) in enumerate(Mspan)
         Ω = ellipse(a, b, M)
         U, _, _, _ = marangoni_solve(Ω, Γ_D_ref, Γ_N_ref, g)
         err_M[i, j] = abs(U[1] - u_ref)
-        @printf("    M = %3d:  u = %+.15e  err = %.6e\n", M, U[1], err_M[i, j])
+        @printf("%8d%14.2e\n", M, err_M[i, j])
     end
 
     # (ii) Boundary resolution N, expansion fixed at M_ref
     Ω_ref = ellipse(a, b, M_ref)
-    println("  boundary resolution N (M = $M_ref):")
+    @printf("  boundary resolution (M = %d)\n%8s%14s\n", M_ref, "Ns", "error")
     for (i, Ns) in enumerate(Nspan)
         Γ_D, Γ_N = surfer_boundary(a, b, s₀, Ns)
         U, _, _, _ = marangoni_solve(Ω_ref, Γ_D, Γ_N, g)
         err_N[i, j] = abs(U[1] - u_ref)
-        @printf("    N = %3d:  u = %+.15e  err = %.6e\n", Ns, U[1], err_N[i, j])
+        @printf("%8d%14.2e\n", Ns, err_N[i, j])
     end
 
 end
@@ -102,7 +102,7 @@ function write_errors(filename, label, span, err)
             println(io)
         end
     end
-    println("Results written to $outfile")
+    println("Wrote ", relpath(outfile, @__DIR__))
 end
 
 write_errors("convergence_expansion.dat", "M", Mspan, err_M)

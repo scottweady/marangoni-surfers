@@ -2,7 +2,7 @@
 # the full surface velocity (Stokes single layer plus Marangoni flow) with the monopole
 # plus dipole approximation at distances `rvals` along directions `θvals`.
 #
-# Output: output/multipole_1p.dat
+# Output: output/farfield_single.dat
 #   r  followed by the error along each direction
 
 include("../../src/marangoni.jl")
@@ -14,7 +14,7 @@ M    = 32
 s₀   = π/2
 g(s) = -cos(s)
 
-aspect_ratio = 1/16
+aspect_ratio = 4.0
 a = sqrt(aspect_ratio)
 b = 1.0 / a
 
@@ -31,9 +31,6 @@ x_Ω, y_Ω = real.(Ω.z), imag.(Ω.z)
 bx_Ω = ∇ℬ(Ω.z, σ_D, Γ_D)[1] .+ ∇ℬ(Ω.z, σ_N, Γ_N)[1]
 by_Ω = ∇ℬ(Ω.z, σ_D, Γ_D)[2] .+ ∇ℬ(Ω.z, σ_N, Γ_N)[2]
 f = 𝒮_st⁻¹((ucm[1] .- y_Ω*ωcm .- bx_Ω, ucm[2] .+ x_Ω*ωcm .- by_Ω), Ω)
-
-@printf("Force monopole = (%+.2e, %+.2e)\n",
-        real(sum(f[1] .* Ω.dz)), real(sum(f[2] .* Ω.dz)))
 
 function eval_stokes_sl(ζ, f, Ω)
     ux = uy = 0.0
@@ -54,9 +51,7 @@ M0 = integral(σ_D, Γ_D) + integral(σ_N, Γ_N)
 m1 = [integral(real.(Γ_D.γ) .* σ_D, Γ_D) + integral(real.(Γ_N.γ) .* σ_N, Γ_N),
       integral(imag.(Γ_D.γ) .* σ_D, Γ_D) + integral(imag.(Γ_N.γ) .* σ_N, Γ_N)]
 
-@printf("Swimming speed = (%+.6f, %+.6f)\n", ucm...)
-@printf("Monopole M0 = %+.6f\n", M0)
-@printf("Dipole   m1 = (%+.6f, %+.6f)\n", m1...)
+@printf("%-18sU = %.6f   m₀ = %+.2e   m₁ = (%+.6f, %+.6f)\n\n", "Single particle:", ucm[1], M0, m1...)
 
 # -- Compare full solution vs multipole at increasing r ------------------------
 
@@ -65,12 +60,14 @@ rvals = [8.0, 16.0, 32.0, 64.0, 128.0, 256.0]
 
 outdir = joinpath(@__DIR__, "output")
 mkpath(outdir)
-outfile = joinpath(outdir, "multipole_1p.dat")
+outfile = joinpath(outdir, "farfield_single.dat")
 
 open(outfile, "w") do io
     @printf(io, "# r   err_th0   err_thpi4   err_thpi2   err_thpi\n")
 
-    @printf("%-10s  %-12s  %-12s  %-12s  %-12s\n", "r", "err(θ=0)", "err(θ=π/4)", "err(θ=π/2)", "err(θ=π)")
+    @printf("%8s", "r")
+    foreach(θ -> @printf("%14s", @sprintf("θ = %.2fπ", θ/π)), θvals)
+    println()
 
     for r in rvals
 
@@ -92,9 +89,11 @@ open(outfile, "w") do io
             push!(errs, hypot(u_num[1] - u_mp[1], u_num[2] - u_mp[2]))
         end
 
-        @printf("%-10.2f  %-12.4e  %-12.4e  %-12.4e  %-12.4e\n", r, errs...)
+        @printf("%8.1f", r)
+        foreach(e -> @printf("%14.2e", e), errs)
+        println()
         @printf(io, "%.6e  %.6e  %.6e  %.6e  %.6e\n", r, errs...)
     end
 end
 
-println("\nWrote $outfile")
+println("\nWrote ", relpath(outfile, @__DIR__))

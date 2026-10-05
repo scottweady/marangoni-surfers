@@ -3,7 +3,7 @@
 # parametrized by the self-propulsion speed U, surfactant dipole strength η, and
 # Bretherton constant β, over `separations` for each orientation in `θcm_configs`.
 #
-# Output: output/multipole_rb.dat
+# Output: output/farfield_dynamics.dat
 #   d  err_u  err_ω  config
 
 include("../../src/marangoni.jl")
@@ -15,7 +15,7 @@ M    = 32
 s₀   = π/2
 g(s) = -cos(s)
 
-aspect_ratio = 2.0
+aspect_ratio = 4.0
 a = sqrt(aspect_ratio)
 b = 1.0 / a
 
@@ -35,7 +35,7 @@ U = U_sp[1]   # self-propulsion speed
 
 β = ((a/b)^2 - 1.0) / ((a/b)^2 + 1.0)
 
-@printf("U = %.6f   η = %.6f   β = %.6f\n", U, η, β)
+@printf("%-18sU = %.6f   η = %.6f   β = %.6f\n", "Single particle:", U, η, β)
 
 # -- Far-field formulas --------------------------------------------------------
 
@@ -74,14 +74,14 @@ separations = [8.0, 16.0, 32.0, 64.0, 128.0, 256.0]
 
 outdir = joinpath(@__DIR__, "output")
 mkpath(outdir)
-outfile = joinpath(outdir, "multipole_rb.dat")
+outfile = joinpath(outdir, "farfield_dynamics.dat")
 
 open(outfile, "w") do io
     @printf(io, "# d   err_u   err_ω   config\n")
 
     for (icfg, θcm) in enumerate(θcm_configs)
-        @printf("\nθcm = (%.4f, %.4f)\n", θcm...)
-        @printf("%-10s  %-12s  %-12s\n", "d", "|err u|", "|err ω|")
+        @printf("\nθcm = (%.2fπ, %.2fπ)\n", (θcm ./ π)...)
+        @printf("%8s%14s%14s\n", "d", "|Δu|", "|Δω|")
 
         for d in separations
             xcm  = [-d/2 + 0im, d/2 + 0im]
@@ -95,10 +95,10 @@ open(outfile, "w") do io
                 err_ω = max(err_ω, abs(ω_bim - ωcm_ff(i, xcm, θcm)))
             end
 
-            @printf("%-10.2f  %-12.4e  %-12.4e\n", d, err_u, err_ω)
+            @printf("%8.1f%14.2e%14.2e\n", d, err_u, err_ω)
             @printf(io, "%.6f  %.6e  %.6e  %d\n", d, err_u, err_ω, icfg)
         end
     end
 end
 
-println("\nWrote $outfile")
+println("\nWrote ", relpath(outfile, @__DIR__))

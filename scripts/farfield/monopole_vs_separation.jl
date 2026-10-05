@@ -1,7 +1,7 @@
 # Total surfactant density ∫ σ dΓ on each particle of a pair versus center-to-center
 # separation, with both particles oriented along or perpendicular to the line of centers.
 #
-# Output: output/sigma_vs_separation.dat
+# Output: output/monopole_vs_separation.dat
 #   d  I1  I2 (aligned)  I1  I2 (perpendicular)
 
 include("../../src/marangoni.jl")
@@ -49,7 +49,7 @@ end
 
 outdir = joinpath(@__DIR__, "output")
 mkpath(outdir)
-outfile = joinpath(outdir, "sigma_vs_separation.dat")
+outfile = joinpath(outdir, "monopole_vs_separation.dat")
 
 open(outfile, "w") do io
     for (i, d) in enumerate(separations)
@@ -60,4 +60,4 @@ open(outfile, "w") do io
     end
 end
 
-println("\nWrote $outfile")
+println("Wrote ", relpath(outfile, @__DIR__))

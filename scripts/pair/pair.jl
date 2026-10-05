@@ -3,7 +3,7 @@
 # Sweeps aspect ratio over `aspect_ratios` at fixed area and initial separation over
 # `Δx_range`, with the pair parallel or antiparallel (`orient`).
 #
-# Output: output/a<a>_b<b>_d<Δx>.dat, one row per time step
+# Output: output/<orient>/a<a>_b<b>_d<Δx>.dat, one row per time step
 #   t  x1  y1  θ1  x2  y2  θ2  gap
 # where gap is the minimum boundary-to-boundary distance.
 
@@ -29,7 +29,7 @@ cfl_scale      = 0.5    # dt ≤ cfl_scale * gap / max speed
 stop_dist      = 1e-2   # stop when the boundary gap falls below this
 max_separation = Inf    # stop when the center-to-center distance exceeds this
 
-outdir = joinpath(@__DIR__, "output")
+outdir = joinpath(@__DIR__, "output", string(orient))
 mkpath(outdir)
 
 # -- Helpers -------------------------------------------------------------------
@@ -73,7 +73,6 @@ for aspect_ratio in aspect_ratios
 
     a = sqrt(aspect_ratio)
     b = 1.0 / a
-    @printf("(a, b) = (%.4f, %.4f)\n", a, b)
 
     γ(s) = a*cos(s) + im*b*sin(s)
     Ω, Γ_D, Γ_N = surfer(a, b, s₀, Ns, M)
@@ -84,7 +83,7 @@ for aspect_ratio in aspect_ratios
 
     for Δx in Δx_range
 
-        @printf("  Δx = %.1f\n", Δx)
+        @printf("a/b = %g, Δx = %g\n", aspect_ratio, Δx)
 
         xcm = [-Δx/2 + 0im, Δx/2 + 0im]
         θcm = orient == :parallel ? [π/2, π/2] : [-π/2, π/2]
@@ -100,13 +99,11 @@ for aspect_ratio in aspect_ratios
         while t < t_max && step < max_steps
 
             if d < stop_dist
-                @printf("    Boundary-gap threshold reached (gap=%.6e < %.1e) at t = %.6f\n",
-                        d, stop_dist, t)
+                @printf("  stopped at t = %.4f: gap %.2e < %.0e\n", t, d, stop_dist)
                 break
             end
             if abs(xcm[1] - xcm[2]) > max_separation
-                @printf("    Max separation threshold reached (sep=%.6e > %.1f) at t = %.6f\n",
-                        abs(xcm[1] - xcm[2]), max_separation, t)
+                @printf("  stopped at t = %.4f: separation %.2e > %.2e\n", t, abs(xcm[1] - xcm[2]), max_separation)
                 break
             end
 
@@ -125,15 +122,14 @@ for aspect_ratio in aspect_ratios
             write_row(io, t, xcm, θcm, d)
 
             display(plot_pair(xcm, θcm, t, z_outline, z_arc))
-            @printf("    step=%d  t=%.6f  dt=%.3e  gap=%.6e\n", step, t, dt, d)
+            @printf("  t = %10.4f   dt = %.2e   gap = %.2e\n", t, dt, d)
 
         end
 
         close(io)
-        println("    Wrote $outfile ($(step + 1) time steps)")
+        println("Wrote ", relpath(outfile, @__DIR__), " (", step + 1, " steps)")
 
     end
 end
 
-println("\nDone.")
 readline()

@@ -92,8 +92,6 @@ for k = 1:Nt
     ang1 = unwrap(A(:,4));
     plot(axSep, t, sep, 'Color', c);
     plot(axOmg, t, ang1 + pi/2, 'Color', c, 'HandleVisibility', 'off');
-
-    disp(['Processing trajectory ' num2str(k) ' of ' num2str(Nt)]);
     [U, eta, beta] = single_particle(traj_ab(k));
     opts = odeset('RelTol', 1e-12, 'AbsTol', 1e-12);
     [tf, Y] = ode45(@(~, y) farfield_rhs(y, U, eta, beta), [0 50], A(1, 2:7)', opts);

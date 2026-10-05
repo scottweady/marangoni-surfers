@@ -38,7 +38,7 @@ t_snap  = A[1,1]
 xcm = A[:,2] .+ im .* A[:,3]
 θcm = A[:,4]
 Nparticles = length(xcm)
-@printf("Snapshot at t = %.2f (%s), %d particles\n", t_snap, files[k], Nparticles)
+@printf("Snapshot at t = %.2f, %d particles\n", t_snap, Nparticles)
 
 # -- Solve surfactant and evaluate on a grid -----------------------------------
 
@@ -71,4 +71,4 @@ open(outfile, "w") do io
     end
 end
 
-println("Written to $outfile")
+println("Wrote ", relpath(outfile, @__DIR__))
