@@ -9,11 +9,11 @@ println("\nSegment: single-layer Dirichlet solve")
 let
     L = 1.0
     σ_exact(s) = 2s^2 - 1
-    λ = L/4
+    μ = L/4
 
     for N in Nspan
         Γ = segment(N; dom=[-L, L])
-        g = λ * σ_exact.(Γ.s)
+        g = μ * σ_exact.(Γ.s)
         σ, _ = laplace_solve([Γ], [:D], [g])
         err = norm(σ[1] .- σ_exact.(Γ.s), Inf)
         printerror(N, err)

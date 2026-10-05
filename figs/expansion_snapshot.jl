@@ -1,7 +1,7 @@
 # Surfactant concentration for a snapshot of the patch-expansion run (data/patch), for
 # plotting in MATLAB (fig_expansion.m).
 #
-# Output: data/patch/expansion_snapshot.dat
+# Output: output/expansion_snapshot.dat
 #   Line 1: # Nx=... Ny=... t=...
 #   Line 2: x values (Nx floats)
 #   Line 3: y values (Ny floats)
@@ -22,7 +22,7 @@ b = 1.0 / a
 s₀   = π/2
 g(s) = -cos(s)
 
-Ns = 64
+Ns = 128
 
 Γ_D, Γ_N = surfer_boundary(a, b, s₀, Ns)
 
@@ -59,7 +59,9 @@ end
 
 # -- Write results -------------------------------------------------------------
 
-outfile = joinpath(datadir, "expansion_snapshot.dat")
+outdir = joinpath(@__DIR__, "output")
+mkpath(outdir)
+outfile = joinpath(outdir, "expansion_snapshot.dat")
 open(outfile, "w") do io
     @printf(io, "# Nx=%d Ny=%d t=%.4f\n", Nplt, Nplt, t_snap)
     println(io, join([@sprintf("%.10e", v) for v in xplt], " "))

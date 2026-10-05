@@ -25,7 +25,7 @@ end
 
 # -- Setup ---------------------------------------------------------------------
 
-Ns   = 1024
+Ns   = 128
 M    = 32
 s₀   = π/2
 g(s) = -cos(s)
@@ -51,7 +51,6 @@ m0_sp, m1_sp = surfactant_multipoles(σ_D_sp, Γ_D_sp, σ_N_sp, Γ_N_sp)
 
 d   = 100.0
 xcm = [-d/2 + 0im, d/2 + 0im]
-θcm = [π/2, π/2]   # orientation of each particle; vary to test θ = 0 vs π/2
 
 use_2p_multipoles = false   # if true, compute m0/m1 from the two-particle BIM solve
 
@@ -154,8 +153,6 @@ for (icfg, θcm_cfg) in enumerate(θcm_configs)
     end
 end
 
-all_errors = max_errors
-
 outdir = joinpath(@__DIR__, "output")
 mkpath(outdir)
 outfile = joinpath(outdir, "multipole_2p.dat")
@@ -164,7 +161,7 @@ open(outfile, "w") do io
     @printf(io, "# r   max_err_th0   max_err_thpi2\n")
     for ir in eachindex(rvals)
         @printf(io, "%.6f  %.10e  %.10e\n",
-                rvals[ir], all_errors[ir, 1], all_errors[ir, 2])
+                rvals[ir], max_errors[ir, 1], max_errors[ir, 2])
     end
 end
 

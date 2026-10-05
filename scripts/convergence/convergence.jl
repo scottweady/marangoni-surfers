@@ -3,7 +3,7 @@
 # measured separately in the Stokes expansion order (`Mspan`, with the boundary resolved
 # at `Ns_ref`) and in the boundary resolution (`Nspan`, with expansion order `M_ref`).
 #
-# Output: data/convergence/convergence_<expansion|boundary>.dat
+# Output: output/convergence_<expansion|boundary>.dat
 #   Header: Ns_ref, M_ref, aspect ratios, exact speeds
 #   Rows:   M (or N)  followed by the error for each aspect ratio
 
@@ -83,7 +83,7 @@ end
 
 # -- Write results -------------------------------------------------------------
 
-outdir = joinpath(@__DIR__, "../../data/convergence")
+outdir = joinpath(@__DIR__, "output")
 mkpath(outdir)
 
 function write_errors(filename, label, span, err)

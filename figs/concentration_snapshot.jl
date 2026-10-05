@@ -1,7 +1,7 @@
 # Surfactant concentration and surface velocity for a snapshot of a pair trajectory,
 # for plotting in MATLAB.
 #
-# Output: concentration_snapshot.dat
+# Output: output/concentration_snapshot.dat
 #   Line 1: # Nx=... Ny=... t=... ucm=... vcm=...
 #   Line 2: x values (Nx floats)
 #   Line 3: y values (Ny floats)
@@ -23,7 +23,7 @@ b = 1.0 / a
 s₀   = π/2
 g(s) = -cos(s)
 
-M  = 16
+M  = 32
 Ns = 128
 
 Ω, Γ_D, Γ_N = surfer(a, b, s₀, Ns, M)
@@ -33,7 +33,7 @@ Ns = 128
 datfile = joinpath(@__DIR__, "../data/disk", "a1.0000_b1.0000_d16.0.dat")
 A = readdlm(datfile)
 
-# Use midpoint of trajectory as representative snapshot
+# Snapshot shortly before the end of the trajectory
 row = A[end-15, :]
 t_snap = row[1]
 xcm = [row[2] + im*row[3], row[5] + im*row[6]]
@@ -43,30 +43,10 @@ xcm = [row[2] + im*row[3], row[5] + im*row[6]]
 @printf("  xcm = [%.4f%+.4fi, %.4f%+.4fi]\n", real(xcm[1]), imag(xcm[1]), real(xcm[2]), imag(xcm[2]))
 @printf("  θcm = [%.4f, %.4f]\n", θcm[1], θcm[2])
 
-# -- Solve: surfactant + Stokes mobility ---------------------------------------
+# -- Solve ---------------------------------------------------------------------
 
-println("Solving surfactant...")
-σ, ϕinf, Γ = surfactant_solve(xcm, θcm, Γ_D, Γ_N, g)
-
-Nparticles = length(xcm)
-Npts       = length(Ω.z)
-offs       = [0; cumsum(fill(Npts, Nparticles))]
-
-# ∇ℬ at Stokes quadrature nodes (uinf for the mobility problem)
-pts = [exp(im * θcm[i]) .* Ω.z .+ xcm[i] for i in 1:Nparticles]
-u_pts, v_pts = ∇ℬ(vcat(vec.(pts)...), σ, Γ)
-
-uinf = Vector{Tuple{Matrix{Float64}, Matrix{Float64}}}(undef, Nparticles)
-for i in 1:Nparticles
-    ri = offs[i]+1:offs[i+1]
-    shp = size(pts[i])
-    uinf[i] = (reshape(copy(u_pts[ri]), shp), reshape(copy(v_pts[ri]), shp))
-end
-
-println("Solving Stokes mobility...")
-F = [zeros(3) for _ in 1:Nparticles]
-f_body, U = suspension_mobility_solve(xcm, θcm, uinf, nothing, F, Ω)
-println("Done. U[1] = $(U[1])")
+U, σ, Γ, ϕinf, f = marangoni_solve(xcm, θcm, Ω, Γ_D, Γ_N, g)
+println("U[1] = $(U[1])")
 
 # -- Evaluate concentration and velocity on grid -------------------------------
 
@@ -76,34 +56,8 @@ xplt = range(minimum(real.(xcm)) - pad, maximum(real.(xcm)) + pad, length=Nplt)
 yplt = range(minimum(imag.(xcm)) - pad, maximum(imag.(xcm)) + pad, length=Nplt)
 z    = ComplexF64[xn + im*yn for yn in yplt, xn in xplt]
 
-# Concentration
-ϕ = sum(𝒱(z, σ[2k-1], Γ[2k-1]) .+ 𝒱(z, σ[2k], Γ[2k]) for k in 1:Nparticles) .+ ϕinf
-
-# Full velocity: u = S[f](z) + ∇ℬ[σ](z)
-println("Evaluating velocity field...")
-u, v = ∇ℬ(z, σ, Γ)   # Marangoni component
-
-for k in 1:Nparticles
-    # Transform grid to body frame of particle k
-    z_body = ComplexF64.(exp(-im * θcm[k]) .* (z .- xcm[k]))
-    # Evaluate Stokes single-layer at body-frame exterior points
-    vel = 𝒮_st(z_body, f_body[k], Ω)   # Array of (u_body, v_body) tuples
-    u_b = real.(first.(vel))
-    v_b = real.(last.(vel))
-    # Rotate body-frame velocity back to world frame
-    ct = cos(θcm[k]); st = sin(θcm[k])
-    u .+= ct .* u_b .- st .* v_b
-    v .+= st .* u_b .+ ct .* v_b
-end
-
-# Mask points inside either particle
-for k in 1:Nparticles
-    z_body = exp(-im * θcm[k]) .* (z .- xcm[k])
-    inside = (real.(z_body) / a).^2 .+ (imag.(z_body) / b).^2 .< 1.0
-    ϕ[inside] .= NaN
-    u[inside] .= NaN
-    v[inside] .= NaN
-end
+inside(z) = (real(z) / a)^2 + (imag(z) / b)^2 < 1
+ϕ, u, v = surface_fields(z, xcm, θcm, Ω, σ, Γ, ϕinf, f; inside=inside)
 
 # -- Write results -------------------------------------------------------------
 
@@ -113,10 +67,12 @@ function write_matrix(io, M, Nplt)
     end
 end
 
-ucm_vel = mean(U[i][1] for i in 1:Nparticles)
-vcm_vel = mean(U[i][2] for i in 1:Nparticles)
+ucm_vel = mean(Ui[1] for Ui in U)
+vcm_vel = mean(Ui[2] for Ui in U)
 
-outfile = joinpath(@__DIR__, "concentration_snapshot.dat")
+outdir = joinpath(@__DIR__, "output")
+mkpath(outdir)
+outfile = joinpath(outdir, "concentration_snapshot.dat")
 open(outfile, "w") do io
     @printf(io, "# Nx=%d Ny=%d t=%.4f ucm=%.10e vcm=%.10e\n", Nplt, Nplt, t_snap, ucm_vel, vcm_vel)
     println(io, join([@sprintf("%.10e", v) for v in xplt], " "))

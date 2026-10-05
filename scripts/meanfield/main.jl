@@ -12,10 +12,10 @@ using Plots
 aspect_ratio = 4.0
 a = sqrt(aspect_ratio)
 b = 1.0 / a
-λ = (a^2 - b^2) / (a^2 + b^2)
+β = (a^2 - b^2) / (a^2 + b^2)
 
 U = 1.0
-β = 10.0
+η = 10.0
 
 dT = 0.005
 dR = 0.005
@@ -42,7 +42,6 @@ const frame_count = Ref(0)
 function render(snap, G; savedir="")
 
     format = (aspect_ratio = :equal, xlims = (0, G.Lx), ylims = (0, G.Ly), xlabel = "x", ylabel = "y")
-    cformat = (clims = (0.0, 2.0),)
     s  = 4
     is = 1:s:G.Nx; js = 1:s:G.Ny
     X  = [G.x[i] for i in is, j in js]; Y = [G.y[j] for i in is, j in js]
@@ -100,4 +99,4 @@ elseif config == :band
 end
 
 savedir = joinpath(outdir, "frames")
-simulate(ψ0, G; tf=tf, U=U, λ=λ, β=β, dT=dT, dR=dR, tplt=tplt, callback=(s, g) -> render(s, g; savedir=savedir))
+simulate(ψ0, G; tf=tf, U=U, β=β, η=η, dT=dT, dR=dR, tplt=tplt, callback=(s, g) -> render(s, g; savedir=savedir))

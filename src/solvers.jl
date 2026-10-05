@@ -139,8 +139,9 @@ parameter `s`.
 - `tol`: FMM/GMRES accuracy tolerance (default `1e-6`).
 
 # Returns
-- `(U, σ, Γ, ϕ∞)`: per-particle rigid-body velocities `U[i] = (ux, uy, ω)`, layer
-  densities, placed boundaries, and the far-field constant.
+- `(U, σ, Γ, ϕ∞, f)`: per-particle rigid-body velocities `U[i] = (ux, uy, ω)`, layer
+  densities, placed boundaries, the far-field constant, and the Stokes force densities
+  `f[i]` on each particle's domain, in its body frame.
 """
 function marangoni_solve(xcm, θcm, Ω, Γ_D::Boundary, Γ_N::Boundary, g; tol=1e-6)
 
@@ -161,9 +162,58 @@ function marangoni_solve(xcm, θcm, Ω, Γ_D::Boundary, Γ_N::Boundary, g; tol=1
     end
 
     F = [zeros(3) for _ in 1:Nparticles]
-    _, U = suspension_mobility_solve(xcm, θcm, uinf, nothing, F, Ω; eps=tol, gmrestol=tol)
+    f, U = suspension_mobility_solve(xcm, θcm, uinf, nothing, F, Ω; eps=tol, gmrestol=tol)
 
-    return U, σ, Γ, ϕinf
+    return U, σ, Γ, ϕinf, f
+
+end
+
+"""
+    surface_fields(z, xcm, θcm, Ω, σ, Γ, ϕ∞, f; inside=nothing, tol=1e-6)
+
+Surfactant concentration and surface velocity at points `z`, from the solution of the
+multi-particle [`marangoni_solve`](@ref).
+
+The concentration is the single-layer potential of `σ` plus `ϕ∞`. The velocity is the
+Marangoni flow `∇ℬ[σ]` plus, for each particle, the Stokes single layer of its force
+density, evaluated in the body frame and rotated back.
+
+# Arguments
+- `z`: array of complex evaluation points.
+- `xcm`: vector of complex particle centers.
+- `θcm`: vector of particle orientations, in radians.
+- `Ω`: Stokes domain boundary (shared by all particles).
+- `σ`, `Γ`, `ϕ∞`, `f`: layer densities, placed boundaries, far-field constant, and force
+  densities returned by [`marangoni_solve`](@ref).
+- `inside`: predicate on body-frame points marking the particle interior, where the
+  fields are set to `NaN` (default `nothing`, no masking).
+- `tol`: FMM accuracy tolerance for `∇ℬ` (default `1e-6`).
+
+# Returns
+- `(ϕ, u, v)`: concentration and velocity components, with the same shape as `z`.
+"""
+function surface_fields(z, xcm, θcm, Ω, σ, Γ, ϕinf, f; inside=nothing, tol=1e-6)
+
+    z = ComplexF64.(z)
+    ϕ = sum(𝒱(z, σ[2k-1], Γ[2k-1]) .+ 𝒱(z, σ[2k], Γ[2k]) for k in eachindex(xcm)) .+ ϕinf
+    u, v = ∇ℬ(z, σ, Γ; eps=tol)
+
+    for k in eachindex(xcm)
+        z_body = exp(-im * θcm[k]) .* (z .- xcm[k])
+        vel = 𝒮_st(z_body, f[k], Ω)
+        u_b, v_b = real.(first.(vel)), real.(last.(vel))
+        c, s = cos(θcm[k]), sin(θcm[k])
+        u .+= c .* u_b .- s .* v_b
+        v .+= s .* u_b .+ c .* v_b
+        if inside !== nothing
+            mask = inside.(z_body)
+            ϕ[mask] .= NaN
+            u[mask] .= NaN
+            v[mask] .= NaN
+        end
+    end
+
+    return ϕ, u, v
 
 end
 

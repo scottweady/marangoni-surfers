@@ -1,20 +1,18 @@
 % fig_equilibrium_separation.m — far-field prediction for the equilibrium
-% separation of an anti-parallel pair, r = beta/(4 pi u^S)(1 - lambda/2),
+% separation of an anti-parallel pair, r = eta/(4 pi U)(1 - beta/2),
 % as a function of aspect ratio a/b at fixed area (ab = 1).
 % The pair is offset perpendicular to the propulsion axis, so the particles
 % touch at r = 2b; the prediction is unphysical below that curve.
-%
-% Requires: data/single/equilibrium_separation.dat
+% Uses the exact single-particle constants from single_particle.m.
 
 close all;
 
-dataFile = fullfile(dataRoot, 'single', 'equilibrium_separation.dat');
 P = palette();
 
-A      = readmatrix(dataFile, 'NumHeaderLines', 1);
-ratio  = A(:,1);
-r      = A(:,7);
-rc     = A(:,8);
+ratio = logspace(log10(1/16), log10(16), 25)';
+[U, eta, beta] = single_particle(ratio);
+r  = eta ./ (4*pi*U) .* (1 - beta/2);
+rc = 2 ./ sqrt(ratio);
 
 fig = journal_figure([6.75/2, 2.5], 2, 'tex');
 ax  = axes(fig);

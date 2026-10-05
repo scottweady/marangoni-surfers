@@ -1,7 +1,7 @@
 # Surfactant concentration for a random particle configuration, for the schematic figure
 # (fig_schematic.m).
 #
-# Output: data/schematic/schematic_snapshot.dat
+# Output: output/schematic_snapshot.dat
 #   Line 1: # Nx=... Ny=... N=... a=... b=... k=... Nz=... Nb=...
 #   Line 2: x values (Nx floats)
 #   Line 3: y values (Ny floats)
@@ -105,7 +105,7 @@ onD = sb .> π/2
 write_row(io, v) = println(io, join([@sprintf("%.10e", x) for x in v], " "))
 write_matrix(io, A) = foreach(i -> write_row(io, A[i, :]), axes(A, 1))
 
-outdir = joinpath(@__DIR__, "..", "data", "schematic")
+outdir = joinpath(@__DIR__, "output")
 mkpath(outdir)
 outfile = joinpath(outdir, "schematic_snapshot.dat")
 open(outfile, "w") do io

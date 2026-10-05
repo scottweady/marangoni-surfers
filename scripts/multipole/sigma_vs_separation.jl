@@ -17,7 +17,7 @@ g(s) = -cos(s)
 
 # -- Geometry ------------------------------------------------------------------
 
-Ns = 1024
+Ns = 128
 
 Γ_D, Γ_N = surfer_boundary(a, b, s₀, Ns)
 
@@ -46,8 +46,6 @@ integrals_pi2 = map(separations) do d
 end
 
 # -- Write results -------------------------------------------------------------
-
-# Columns: d  I1_th0  I2_th0  I1_thpi2  I2_thpi2
 
 outdir = joinpath(@__DIR__, "output")
 mkpath(outdir)

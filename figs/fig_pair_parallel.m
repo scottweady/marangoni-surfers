@@ -85,9 +85,6 @@ files  = files(isort);
 a_vals = a_vals(isort);
 b_vals = b_vals(isort);
 
-% single-particle U, β, λ for the far-field ODEs (5.2)-(5.3)
-E = readmatrix(fullfile(dataRoot, 'single', 'equilibrium_separation.dat'), 'NumHeaderLines', 1);
-
 % cmap = colorcet('D11', 'N', numel(files)).^1.5;
 cmap = P.cmap(numel(files));
 axSep = axes(fig); hold(axSep, 'on'); box(axSep, 'on');
@@ -112,10 +109,9 @@ for k = 1:numel(files)
     end
 
     disp(['Processing trajectory ' num2str(k) ' of ' num2str(numel(files))]);
-    [~, i] = min(abs(E(:,1) - a_vals(k)/b_vals(k)));
-    uS = E(i,4);  beta = E(i,5);  lam = E(i,6);
+    [U, eta, beta] = single_particle(a_vals(k)/b_vals(k));
     opts = odeset('RelTol', 1e-12, 'AbsTol', 1e-12);
-    [tf, Y] = ode45(@(~, y) farfield_rhs(y, uS, beta, lam), [0 500], A(1, 2:7)', opts);
+    [tf, Y] = ode45(@(~, y) farfield_rhs(y, U, eta, beta), [0 500], A(1, 2:7)', opts);
     sep_ff = hypot(Y(:,1) - Y(:,4), Y(:,2) - Y(:,5));
     plot(axSep, tf, sep_ff, '--', 'Color', c);
     plot(axOmg, tf, unwrap(Y(:,3)) - pi/2, '--', 'Color', c, 'HandleVisibility', 'off');
@@ -174,7 +170,7 @@ panel_label('\it (d)', axSep, -0.95, 0.2);
 panel_label('\it (e)', axOmg, -0.95, 0.2);
 
 % Far-field ODEs (5.2)-(5.3) for a pair, y = [x1 y1 θ1 x2 y2 θ2], r_ij = x_i - x_j.
-function dy = farfield_rhs(y, uS, beta, lam)
+function dy = farfield_rhs(y, U, eta, beta)
     X = [y(1) y(2); y(4) y(5)];  th = [y(3) y(6)];
     dy = zeros(6, 1);
     for i = 1:2
@@ -182,8 +178,8 @@ function dy = farfield_rhs(y, uS, beta, lam)
         p  = [cos(th(i)); sin(th(i))];  q = [-p(2); p(1)];
         pj = [cos(th(j)); sin(th(j))];
         r  = (X(i,:) - X(j,:))';  d = norm(r);  e = r/d;
-        u  = uS*p + beta*(pj - e*(e'*pj))/(4*pi*d);
-        w  = -beta*lam*( -3*(q'*e)*(e'*p)*(e'*pj) + (q'*e)*(pj'*p) + (q'*pj)*(e'*p) )/(4*pi*d^2);
+        u  = U*p + eta*(pj - e*(e'*pj))/(4*pi*d);
+        w  = -eta*beta*( -3*(q'*e)*(e'*p)*(e'*pj) + (q'*e)*(pj'*p) + (q'*pj)*(e'*p) )/(4*pi*d^2);
         dy(3*i-2:3*i) = [u; w];
     end
 end

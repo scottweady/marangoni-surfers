@@ -2,15 +2,15 @@
 # orientation, normalized by the isolated-particle speed, sweeping the (odd) number of
 # particles over `Nvals` and the spacing over `dvals`.
 #
-# Output: center_speed_vs_N.dat
-#   N  followed by |U|/U0 for each spacing
+# Output: output/center_speed_vs_N.dat
+#   N  followed by |u_c|/U for each spacing
 
 include("../../src/marangoni.jl")
 
 # -- Parameters ----------------------------------------------------------------
 
 Ns   = 128
-M    = 16
+M    = 32
 s₀   = π/2
 g(s) = -cos(s)
 
@@ -25,9 +25,9 @@ dvals = [5.0, 10.0, 15.0, 20.0]   # center-to-center spacings between adjacent p
 
 # -- Compute single-particle speed for normalization ---------------------------
 
-U0_vec, _, _, _ = marangoni_solve([0.0+0im], [θ0], Ω, Γ_D, Γ_N, g)
-U0 = hypot(U0_vec[1][1], U0_vec[1][2])
-@printf("Isolated particle speed U0 = %.6f\n", U0)
+U_single, = marangoni_solve([0.0+0im], [θ0], Ω, Γ_D, Γ_N, g)
+U = hypot(U_single[1][1], U_single[1][2])
+@printf("Isolated particle speed U = %.6f\n", U)
 
 # -- Sweep over odd N and spacing d --------------------------------------------
 
@@ -39,28 +39,30 @@ for (j, d) in enumerate(dvals), (i, N) in enumerate(Nvals)
     xcm = ComplexF64[d * (k - (N + 1) / 2) for k in 1:N]
     θcm = fill(θ0, N)
 
-    U, _, _, _ = marangoni_solve(xcm, θcm, Ω, Γ_D, Γ_N, g)
-    uc = hypot(U[ic][1], U[ic][2])
+    Ucm, = marangoni_solve(xcm, θcm, Ω, Γ_D, Γ_N, g)
+    uc = hypot(Ucm[ic][1], Ucm[ic][2])
     U_center[i, j] = uc
-    @printf("d = %4.1f  N = %2d:  |U| = %.6f  (|U|/U0 = %.4f)\n", d, N, uc, uc / U0)
+    @printf("d = %4.1f  N = %2d:  |u_c| = %.6f  (|u_c|/U = %.4f)\n", d, N, uc, uc / U)
 end
 
 # -- Write results -------------------------------------------------------------
 
-outfile = joinpath(@__DIR__, "center_speed_vs_N.dat")
+outdir = joinpath(@__DIR__, "output")
+mkpath(outdir)
+outfile = joinpath(outdir, "center_speed_vs_N.dat")
 open(outfile, "w") do io
-    @printf(io, "# N  |U|/U0 for d = %s  (theta0=%.4f  U0=%.10f)\n", join(dvals, " "), θ0, U0)
+    @printf(io, "# N  |u_c|/U for d = %s  (theta0=%.4f  U=%.10f)\n", join(dvals, " "), θ0, U)
     for (i, N) in enumerate(Nvals)
-        @printf(io, "%d  %s\n", N, join([@sprintf("%.15e", uc / U0) for uc in U_center[i, :]], "  "))
+        @printf(io, "%d  %s\n", N, join([@sprintf("%.15e", uc / U) for uc in U_center[i, :]], "  "))
     end
 end
 println("Written to $outfile")
 
 # -- Plot ----------------------------------------------------------------------
 
-p = plot(collect(Nvals), U_center ./ U0;
+p = plot(collect(Nvals), U_center ./ U;
          xlabel  = "N",
-         ylabel  = "|U| / U₀",
+         ylabel  = "|u_c| / U",
          title   = "Center particle speed (θ = $(round(θ0/π, digits=2))π)",
          label   = permutedims(["d = $d" for d in dvals]),
          marker  = :circle,

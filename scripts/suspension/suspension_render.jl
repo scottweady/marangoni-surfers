@@ -40,7 +40,7 @@ include("../../src/marangoni.jl")
 
 # -- Parameters ----------------------------------------------------------------
 
-Ns   = 256
+Ns   = 128
 M    = 32
 s₀   = π/2
 g(s) = -cos(s)
@@ -64,26 +64,9 @@ xcm = ComplexF64[d_lat * (i - (n_side+1)/2) + im * d_lat * (j - (n_side+1)/2)
                  for j in 1:n_side for i in 1:n_side]
 θcm = 2π .* rand(Nparticles)
 
-# -- Solve: surfactant + Stokes mobility ---------------------------------------
+# -- Solve ---------------------------------------------------------------------
 
-println("Solving surfactant...")
-σ, ϕinf, Γ = surfactant_solve(xcm, θcm, Γ_D, Γ_N, g)
-
-Npts = length(Ω.z)
-offs = [0; cumsum(fill(Npts, Nparticles))]
-pts  = [exp(im * θcm[i]) .* Ω.z .+ xcm[i] for i in 1:Nparticles]
-u_pts, v_pts = ∇ℬ(vcat(vec.(pts)...), σ, Γ)
-
-uinf = Vector{Tuple{Matrix{Float64}, Matrix{Float64}}}(undef, Nparticles)
-for i in 1:Nparticles
-    ri  = offs[i]+1:offs[i+1]
-    shp = size(pts[i])
-    uinf[i] = (reshape(copy(u_pts[ri]), shp), reshape(copy(v_pts[ri]), shp))
-end
-
-println("Solving Stokes mobility...")
-F = [zeros(3) for _ in 1:Nparticles]
-f_body, U = suspension_mobility_solve(xcm, θcm, uinf, nothing, F, Ω)
+U, σ, Γ, ϕinf, f_body = marangoni_solve(xcm, θcm, Ω, Γ_D, Γ_N, g)
 
 outdir = joinpath(@__DIR__, "output")
 mkpath(outdir)
@@ -104,29 +87,8 @@ xplt_s = range(minimum(real.(xcm)) - pad, maximum(real.(xcm)) + pad, length=Nplt
 yplt_s = range(minimum(imag.(xcm)) - pad, maximum(imag.(xcm)) + pad, length=Nplt)
 zg     = ComplexF64[xn + im*yn for yn in yplt_s, xn in xplt_s]
 
-ϕ = sum(𝒱(zg, σ[2k-1], Γ[2k-1]) .+ 𝒱(zg, σ[2k], Γ[2k]) for k in 1:Nparticles) .+ ϕinf
-
-println("Evaluating surface velocity field...")
-u, v = ∇ℬ(zg, σ, Γ)   # Marangoni component
-
-for k in 1:Nparticles
-    z_body = ComplexF64.(exp(-im * θcm[k]) .* (zg .- xcm[k]))
-    vel = 𝒮_st(z_body, f_body[k], Ω)
-    u_b = real.(first.(vel))
-    v_b = real.(last.(vel))
-    ct = cos(θcm[k]); st = sin(θcm[k])
-    u .+= ct .* u_b .- st .* v_b
-    v .+= st .* u_b .+ ct .* v_b
-end
-
-# Mask points inside particles
-for k in 1:Nparticles
-    z_body = exp(-im * θcm[k]) .* (zg .- xcm[k])
-    inside = (real.(z_body) / a).^2 .+ (imag.(z_body) / b).^2 .< 1.0
-    ϕ[inside] .= NaN
-    u[inside] .= NaN
-    v[inside] .= NaN
-end
+inside(z) = (real(z) / a)^2 + (imag(z) / b)^2 < 1
+ϕ, u, v = surface_fields(zg, xcm, θcm, Ω, σ, Γ, ϕinf, f_body; inside=inside)
 
 fields_path = joinpath(outdir, "fields_$(config).dat")
 open(fields_path, "w") do io

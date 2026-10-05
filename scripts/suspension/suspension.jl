@@ -1,15 +1,15 @@
 # Time-dependent simulation of a suspension of surfers from a line, hedgehog (concentric
 # rings pointing outward), or perturbed ring configuration, selected by `config`.
 #
-# Output: frames_<a/b>/frame_<n>.png and frame_<n>.dat, one row per particle
+# Output: output/frames_<a/b>/frame_<n>.png and frame_<n>.dat, one row per particle
 #   t  x  y  θ  ux  uy  ω
 
 include("../../src/marangoni.jl")
 
 # -- Parameters ----------------------------------------------------------------
 
-Ns   = 64
-M    = 16
+Ns   = 128
+M    = 32
 s₀   = π/2
 g(s) = -cos(s)
 
@@ -21,22 +21,14 @@ b = 1.0 / a
 
 # -- Run -----------------------------------------------------------------------
 
-config = :hedgehog   # :line, :hedgehog, :courtroom, or :ring
+config = :hedgehog   # :line, :hedgehog, or :ring
 
 d = 5.0
-
-pastel_red    = RGB(1.0, 0.71, 0.76)
-pastel_blue   = RGB(0.68, 0.85, 1.0)
-pastel_purple = RGB(0.80, 0.70, 0.95)
-
-colors = Any[]
-cmap = :viridis
 
 if config == :line
     Nparticles = 13
     xcm = [d*(i-1-(Nparticles-1)/2) .+ 0im for i in 1:Nparticles]
     θcm = (π/2) * ones(Nparticles)
-    colors = fill(:white, Nparticles)
 
 elseif config == :hedgehog
     n_rings = 3
@@ -53,8 +45,6 @@ elseif config == :hedgehog
     end
     xcm = xs
     θcm = θs
-    Nparticles = length(xcm)
-    colors = fill(:white, Nparticles)
 
 elseif config == :ring
     Nparticles = 13
@@ -72,11 +62,12 @@ elseif config == :ring
     Nx  = rp .* sin.(φ) .+ r .* cos.(φ)
     Ny  = -rp .* cos.(φ) .+ r .* sin.(φ)
     θcm = atan.(Ny, Nx)
-    colors = fill(:white, Nparticles)
 
 end
 
-outdir = joinpath(@__DIR__, "frames_$(round(a/b, digits=4))")
+outdir = joinpath(@__DIR__, "output", "frames_$(round(a/b, digits=4))")
 isdir(outdir) && rm(outdir; recursive=true)
 println("Running simulation...")
-traj_xcm, traj_θcm, traj_t = suspension_simulate(xcm, θcm, Ω, Γ_D, Γ_N, g; t_end=200.0, plot_mode=:concentration, plot_every=5.0, output_file="hedgehog.dat", plot_dir=outdir, dt_max=5.0, colors=colors, cmap=cmap)
+traj_xcm, traj_θcm, traj_t = suspension_simulate(xcm, θcm, Ω, Γ_D, Γ_N, g;
+                                                 t_end=200.0, dt_max=5.0, plot_every=5.0,
+                                                 plot_dir=outdir)

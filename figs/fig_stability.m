@@ -4,6 +4,7 @@ close all
 fig = journal_figure([6.75 2.5], 2, 'tex');
 
 load(fullfile(dataRoot, 'stability', 'growth_rate.mat'));
+eta = beta;  beta = lambda;   % stored as beta (dipole) and lambda (Bretherton)
 
 [K, PH] = meshgrid(kh, ph);
 
@@ -13,7 +14,7 @@ P = palette();
 cmap = [1 1 1; P.cmap()];
 
 pc = linspace(0, pi/2, 200);
-kc = beta*(1 - lambda*sin(pc).^2).^2 ./ (8*lambda*U*sin(pc).^2);
+kc = eta*(1 - beta*sin(pc).^2).^2 ./ (8*beta*U*sin(pc).^2);
 
 t = linspace(-pi, pi, 400);
 psi_0 = @(kappa) exp(kappa*cos(t)) / (2*pi*besseli(0, kappa));
