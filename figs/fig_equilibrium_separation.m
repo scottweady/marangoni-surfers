@@ -4,11 +4,11 @@
 % The pair is offset perpendicular to the propulsion axis, so the particles
 % touch at r = 2b; the prediction is unphysical below that curve.
 %
-% Requires: scripts/single/equilibrium_separation.dat
+% Requires: data/single/equilibrium_separation.dat
 
 close all;
 
-dataFile = fullfile(fileparts(mfilename('fullpath')), '..', 'scripts', 'single', 'equilibrium_separation.dat');
+dataFile = fullfile(dataRoot, 'single', 'equilibrium_separation.dat');
 P = palette();
 
 A      = readmatrix(dataFile, 'NumHeaderLines', 1);

@@ -1,5 +1,5 @@
 
-# ── Close evaluation ──────────────────────────────────────────────────────────
+# -- Close evaluation ----------------------------------------------------------
 
 """
     _find_preimage(ζ, Γ; maxiter=20, tol=1e-15, verbose=false, t_init=nothing)

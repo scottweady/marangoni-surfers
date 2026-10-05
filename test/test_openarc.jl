@@ -1,8 +1,7 @@
+# Dirichlet solve on an open arc (part of a star-shaped curve). Convergence is measured by
+# the potential at an off-curve point against a high-N reference.
 
-# ── Open arc (star) Dirichlet self-refinement study ──────────────────────────
-# Solve ∫_Γ G(ζ,γ') σ(γ') ds' + ϕ∞ = g on the upper half of the star curve.
-# Convergence measured via the potential at an off-curve point against a high-N reference.
-println("\nOpen arc (star (1+0.3·cos5s)eⁱˢ, s∈[0,π]): laplace_solve Dirichlet, self-refinement")
+println("\nOpen arc: Dirichlet solve, self-refinement")
 let
     a = 0.3
     γ(s)   = (1 + a * cos(5s)) * exp(im * s)

@@ -60,7 +60,6 @@ function 𝒱(Γ_tgt::Boundary, σ, Γ_src::Boundary)
     return 𝒱(Γ_tgt.γ, σ, Γ_src)
 end
 
-
 """
     𝒦(ζ, μ, Γ)
 
@@ -124,7 +123,6 @@ Biharmonic single-layer potential `ℬ(ζ) = 1/(4π) ∫_Γ |ζ-γ'| σ ds'`.
 function ℬ(ζ, σ, Γ::Boundary)
     return _smooth_evaluation(ζ, σ, r -> abs(r)/(4π), Γ)
 end
-
 
 """
     ∇𝒱(ζ, σ, Γ)
@@ -213,7 +211,6 @@ function ∇ℋ(ζ, τ, Γ::Boundary; k=1.0)
     Hy = _smooth_evaluation(ζ, τ, kernel_y, Γ)
     return Hx, Hy
 end
-
 
 """
     ∇ℬ(ζ, σs, Γs; eps=1e-6)

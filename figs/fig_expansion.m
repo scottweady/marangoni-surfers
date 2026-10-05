@@ -8,7 +8,7 @@ U = 0.098175;
 
 % ── Load frames ───────────────────────────────────────────────────────────────
 
-dataDir = fullfile(fileparts(mfilename('fullpath')), '..', 'data', 'patch');
+dataDir = fullfile(dataRoot, 'patch');
 files   = dir(fullfile(dataDir, 'frame_*.dat'));
 files   = sort({files.name});
 Nframes = numel(files);
@@ -130,7 +130,7 @@ sb_len = 25 * a;
 sb_x0  = xlims(1) + 0*diff(xlims);
 sb_y   = ylims(1) + 0*diff(ylims);
 line(sp_C, [sb_x0, sb_x0+sb_len], [sb_y, sb_y], 'Color', 'k', 'LineWidth', 2);
-text(sp_C, sb_x0 + sb_len/2, sb_y + 0.02*diff(ylims), '25{\it R}', ...
+text(sp_C, sb_x0 + sb_len/2, sb_y + 0.02*diff(ylims), '25{\it{l}}_*', ...
      'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom', ...
      'FontSize', sp_C.FontSize);
 
@@ -166,7 +166,7 @@ set(sp_S, 'XTick', [], 'YTick', []);
 colormap(sp_S, P.cmap());
 clim(sp_S, [0 1]);
 cb = colorbar(sp_S, 'Location', 'eastoutside', 'Ticks', 0:0.5:1);
-cb.Title.String = '\phi';
+cb.Title.String = '{\it{c}}';
 
 [~, kS] = min(abs(tv - t_S));
 dS = frames{kS};

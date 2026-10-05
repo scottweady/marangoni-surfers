@@ -1,37 +1,31 @@
-"""
-Evaluate surfactant concentration and surface velocity for N=13 circles in a line,
-for θ=0 and θ=π/2.  Writes one dat file per orientation.
-
-Output files: center_speed_snapshot_th0.dat, center_speed_snapshot_thpi2.dat
-  Line 1: # Nx=... Ny=... theta=...
-  Line 2: x values (Nx floats)
-  Line 3: y values (Ny floats)
-  Lines 4..(3+Ny):         phi matrix, Ny rows × Nx columns
-  Lines (4+Ny)..(3+2Ny):   u matrix
-  Lines (4+2Ny)..(3+3Ny):  v matrix
-"""
-
+# Surfactant concentration and surface velocity for a line of surfers with a common
+# orientation, for each orientation in the sweep.
+#
+# Output: data/collective/center_speed_snapshot_<tag>.dat, one file per orientation
+#   Line 1: # Nx=... Ny=... theta=...
+#   Line 2: x values (Nx floats)
+#   Line 3: y values (Ny floats)
+#   Lines 4..(3+Ny):        ϕ matrix, Ny rows × Nx columns
+#   Lines (4+Ny)..(3+2Ny):  u matrix
+#   Lines (4+2Ny)..(3+3Ny): v matrix
 
 include("../src/marangoni.jl")
 
-# ── Geometry: unit circles ────────────────────────────────────────────────────
+# -- Geometry ------------------------------------------------------------------
 
-a, b  = 1.0, 1.0
-α_arc = π / 2
-g(θ)  = -cos(θ)
+aspect_ratio = 1.0
+a = sqrt(aspect_ratio)
+b = 1.0 / a
+
+s₀   = π/2
+g(s) = -cos(s)
 
 M  = 8
 Ns = 128
 
-γ(s)   =  a*cos(s) + im*b*sin(s)
-γs(s)  = -a*sin(s) + im*b*cos(s)
-γss(s) = -a*cos(s) - im*b*sin(s)
+Ω, Γ_D, Γ_N = surfer(a, b, s₀, Ns, M)
 
-Ω   = ellipse(a, b, M)
-Γ_D = openarc(γ, γs, γss, Ns; dom=[α_arc, 2π - α_arc], quad=:open_weight)
-Γ_N = openarc(γ, γs, γss, Ns; dom=[-α_arc, α_arc], quad=:open)
-
-# ── Configuration ─────────────────────────────────────────────────────────────
+# -- Configuration -------------------------------------------------------------
 
 Nparticles = 7
 d          = 10.0
@@ -48,7 +42,7 @@ xrange = xmax - xmin
 xplt   = range(xmin, xmax, length=Nx)
 yplt   = range(-xrange/(2aspect), xrange/(2aspect), length=Ny)
 
-# ── Helper: write a Ny×Nx matrix row by row ───────────────────────────────────
+# -- Helper: write a Ny×Nx matrix row by row -----------------------------------
 
 function write_matrix(io, M, Nx, Ny)
     for iy in 1:Ny
@@ -56,7 +50,7 @@ function write_matrix(io, M, Nx, Ny)
     end
 end
 
-# ── Loop over orientations ────────────────────────────────────────────────────
+# -- Loop over orientations ----------------------------------------------------
 
 for (θ0, tag) in [(0.0, "th0"), (π/2, "thpi2")]
 
@@ -119,7 +113,7 @@ for (θ0, tag) in [(0.0, "th0"), (π/2, "thpi2")]
     end
 
     # Write
-    outfile = joinpath(@__DIR__, "center_speed_snapshot_$(tag).dat")
+    outfile = joinpath(@__DIR__, "..", "data", "collective", "center_speed_snapshot_$(tag).dat")
     open(outfile, "w") do io
         @printf(io, "# Nx=%d Ny=%d theta=%.6f\n", Nx, Ny, θ0)
         println(io, join([@sprintf("%.10e", x) for x in xplt], " "))

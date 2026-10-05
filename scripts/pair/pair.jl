@@ -1,31 +1,27 @@
-"""
-Generate trajectory data for Figure 3: two interacting ellipses.
-
-Varies aspect ratio a ∈ [1, 4] with fixed area πab = π (so b = 1/a).
-Varies initial separation d ∈ [5, 10].
-Outputs trajectories to .dat files: fig3_a{a:.1f}_b{b:.1f}_d{d:.1f}.dat
-
-Each file contains columns:
-  t  x1_cm  y1_cm  θ1  x2_cm  y2_cm  θ2  separation
-"""
-
-using Plots
-using Printf
+# Trajectories of two interacting elliptical surfers, integrated with midpoint RK2.
+#
+# Sweeps aspect ratio over `aspect_ratios` at fixed area and initial separation over
+# `Δx_range`, with the pair parallel or antiparallel (`orient`).
+#
+# Output: output/a<a>_b<b>_d<Δx>.dat, one row per time step
+#   t  x1  y1  θ1  x2  y2  θ2  gap
+# where gap is the minimum boundary-to-boundary distance.
 
 include("../../src/marangoni.jl")
 
-# ── Parameters ───────────────────────────────────────────────────────────────
+# -- Parameters ----------------------------------------------------------------
 
-α_arc = π/2   # arc angle (Dirichlet domain)
-g(θ) = -cos(θ)  # surfactant distribution
+s₀   = π/2
+g(s) = -cos(s)
 
-aspect_span = [10.0]
+aspect_ratios = [10.0]
 Δx_range = [1.65]
 
 # orient = :parallel
 orient = :antiparallel
 
-# ── Discretization ─────────────────────────────────────────────────────────
+# -- Discretization ------------------------------------------------------------
+
 Ns = 64      # arc quadrature points
 M  = 16      # spectral degree for ellipse
 
@@ -38,37 +34,32 @@ cfl_scale = 0.5  # safety factor in U*dt < d using boundary-to-boundary gap d
 stop_dist = 1e-2  # stop when nearest boundary-to-boundary distance is below this
 max_separation = Inf  # stop when center-to-center distance exceeds this
 
-# ── Main loop: aspect ratio and separation ───────────────────────────────────
+# -- Main loop: aspect ratio and separation ------------------------------------
 
-for aspect in aspect_span
+for aspect_ratio in aspect_ratios
 
-    a = sqrt(aspect)
-    b = 1.0 / a  # fixed area: πab = π
-    
+    a = sqrt(aspect_ratio)
+    b = 1.0 / a
+
     @printf("(a, b) = (%.4f, %.4f)\n", a, b)
-    
+
     # Define ellipse and arc boundaries (body frame, θ=0)
-    γ(s)   =  a*cos(s) + im*b*sin(s)
-    γs(s)  = -a*sin(s) + im*b*cos(s)
-    γss(s) = -a*cos(s) - im*b*sin(s)
-    
-    Ω = ellipse(a, b, M)
-    Γ_D = openarc(γ, γs, γss, Ns; dom=[α_arc, 2π - α_arc], quad=:open_weight)
-    Γ_N = openarc(γ, γs, γss, Ns; dom=[-α_arc, α_arc], quad=:open)
+    γ(s) = a*cos(s) + im*b*sin(s)
+    Ω, Γ_D, Γ_N = surfer(a, b, s₀, Ns, M)
 
     # Boundary points in body frame for nearest-distance checks
     z_boundary_body = vcat(Γ_D.γ, Γ_N.γ)
 
     # Densely sampled body-frame curves for plotting: full outline and Dirichlet arc
     z_outline_body = γ.(range(0, 2π; length=201))
-    z_arc_body     = γ.(range(α_arc, 2π - α_arc; length=101))
+    z_arc_body     = γ.(range(s₀, 2π - s₀; length=101))
 
     for Δx in Δx_range
-      
+
         @printf("  Δx = %.1f\n", Δx)
-        
-        # ── Initial conditions ───────────────────────────────────────────────
-        
+
+        # -- Initial conditions ------------------------------------------------
+
         xcm  = [-Δx/2 + 0im, Δx/2 + 0im]   # center of mass positions
 
         if orient == :parallel
@@ -78,7 +69,7 @@ for aspect in aspect_span
         end
 
         U_all = Vector{Vector{Float64}}(undef, 2)
-        
+
         # Storage for trajectory
         times = Float64[]
         trajectory = Tuple{Float64, Float64, Float64, Float64, Float64, Float64, Float64}[]
@@ -95,24 +86,23 @@ for aspect in aspect_span
         ))
 
         # Setup file for writing
-        out_dir = joinpath(@__DIR__, "output")
-        mkpath(out_dir)
-        filename = @sprintf("a%.4f_b%.4f_d%.1f.dat", a, b, Δx)
-        filepath = joinpath(out_dir, filename)
-        io = open(filepath, "w")
-        
-        # ── Time integration ─────────────────────────────────────────────────
-        
+        outdir = joinpath(@__DIR__, "output")
+        mkpath(outdir)
+        outfile = joinpath(outdir, @sprintf("a%.4f_b%.4f_d%.1f.dat", a, b, Δx))
+        io = open(outfile, "w")
+
+        # -- Time integration --------------------------------------------------
+
         t = 0.0
         step = 0
         last_written = 0
         max_steps = Int(ceil(t_max / dt_max)) + 1000
-        
+
         while t < t_max && step < max_steps
-            
+
             # Solve for velocities at current configuration
             U, σ, Γ, ϕinf = marangoni_solve(xcm, θcm, Ω, Γ_D, Γ_N, g)
-            
+
             # Extract velocities: U[i] = [vx, vy, ω]
             for i in 1:2
                 U_all[i] = U[i]
@@ -146,7 +136,7 @@ for aspect in aspect_span
             if dt < dt_min && remaining > dt_min
                 dt = dt_min
             end
-            
+
             # Midpoint RK2 step
             # Predict
             vx1, vy1 = U_all[1][1], U_all[1][2]
@@ -156,16 +146,16 @@ for aspect in aspect_span
                 xcm[2] + 0.5 * dt * (vx2 + im * vy2),
             ]
             θcm_mid  = θcm .+ 0.5 * dt .* [U_all[1][3], U_all[2][3]]
-            
+
             # Eval at midpoint
             U_mid, _, _, _ = marangoni_solve(xcm_mid, θcm_mid, Ω, Γ_D, Γ_N, g)
-            
+
             # Update
             for i in 1:2
                 xcm[i] += dt * (U_mid[i][1] + im * U_mid[i][2])
                 θcm[i] += dt * U_mid[i][3]
             end
-            
+
             t += dt
             step += 1
 
@@ -196,7 +186,7 @@ for aspect in aspect_span
             display(plt)
 
             @printf("    step=%d  t=%.6f  dt=%.3e  gap=%.6e\n", step, t, dt, dist)
-            
+
             # Write to file every 10 steps
             if mod(step, nplt) == 0
                 # Write lines since the last write
@@ -221,7 +211,7 @@ for aspect in aspect_span
             end
 
         end
-        
+
         # Write any remaining steps to file
         for i in last_written+1:length(times)
             t_val = times[i]
@@ -229,10 +219,10 @@ for aspect in aspect_span
             @printf(io, "%.6e  %.6e  %.6e  %.6e  %.6e  %.6e  %.6e  %.6e\n",
                     t_val, x1, y1, θ1, x2, y2, θ2, dist_val)
         end
-        
+
         close(io)
-        
-        println("    Wrote $filename ($(length(times)) time steps)")
+
+        println("    Wrote $outfile ($(length(times)) time steps)")
     end
 end
 

@@ -1,24 +1,24 @@
+# Surfactant concentration for a static configuration of surfers placed along a spiral,
+# each oriented tangent to it.
 
 include("../../src/marangoni.jl")
 
-# ── Parameters ────────────────────────────────────────────────────────────────
+# -- Parameters ----------------------------------------------------------------
 
-a, b = 1.0, 1.0
-α = π/2
-g(θ) = -cos(θ)
+aspect_ratio = 1.0
+a = sqrt(aspect_ratio)
+b = 1.0 / a
 
-# ── Geometry ──────────────────────────────────────────────────────────────────
+s₀   = π/2
+g(s) = -cos(s)
+
+# -- Geometry ------------------------------------------------------------------
 
 Ns   = 32
 
-γ(s)   =  a*cos(s) + im*b*sin(s)
-γs(s)  = -a*sin(s) + im*b*cos(s)
-γss(s) = -a*cos(s) - im*b*sin(s)
+Γ_D, Γ_N = surfer_boundary(a, b, s₀, Ns)
 
-Γ_D = openarc(γ, γs, γss, Ns; dom=[α, 2π-α])
-Γ_N = openarc(γ, γs, γss, Ns; dom=[-α, α])
-
-# ── Configuration ──────────────────────────────────────────────────────────────
+# -- Configuration -------------------------------------------------------------
 
 Nparticles   = 2
 r0, dr   = 8.0, 4.0 # inner radius, radial growth per turn
@@ -31,7 +31,7 @@ drdθ = dr / (2π)
 θcm = atan.(drdθ .* sin.(θ_spiral) .+ r .* cos.(θ_spiral),
             drdθ .* cos.(θ_spiral) .- r .* sin.(θ_spiral))
 
-# ── Solve ──────────────────────────────────────────────────────────────────────
+# -- Solve ---------------------------------------------------------------------
 
 σ, ϕinf, Γ = surfactant_solve(xcm, θcm, Γ_D, Γ_N, g)
 

@@ -108,7 +108,7 @@ cb = colorbar(sp2, 'Ticks', [0, clim_max], 'TickLabels', {'0', '|{\it\bf u}|_{ma
 
 % ── (c) Monopole coefficient vs separation ────────────────────────────────────
 
-dataDir = fullfile(fileparts(mfilename('fullpath')), '..', 'data', 'multipole');
+dataDir = fullfile(dataRoot, 'multipole');
 data     = load(fullfile(dataDir, 'sigma_vs_separation.dat'));
 d        = data(:,1);
 I1_th0   = data(:,2);
@@ -124,7 +124,7 @@ plot(sp3, d, abs(I1_th0),   'Color', P.c1, 'DisplayName', '{\it \theta} = 0');
 plot(sp3, d, abs(I1_thpi2), 'Color', P.c2, 'DisplayName', '{\it \theta} = {\it \pi}/2');
 plot(sp3, d_fine, fit0, '--', 'Color', [0.6 0.2 0.2], 'DisplayName', '\propto 1/({\it{r}} log{\it r})')
 xlabel(sp3, 'separation, {\it r}');
-ylabel(sp3, ['monopole, |\sigma' char(773) ' |']);
+ylabel(sp3, ['{\it{m}}_{0,1}']);
 legend(sp3, 'Location', 'northeast', 'Color', 'none', 'FontSize', sp3.FontSize);
 xlim(sp3, [0 100]);
 ylim(sp3, [-0.02 0.2]);

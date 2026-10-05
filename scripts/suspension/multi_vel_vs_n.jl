@@ -1,32 +1,35 @@
-
+# Speed of the center particle in a line of equally spaced surfers with a common
+# orientation, normalized by the isolated-particle speed, sweeping the (odd) number of
+# particles over `Nvals` and the spacing over `dvals`.
+#
+# Output: center_speed_vs_N.dat
+#   N  followed by |U|/U0 for each spacing
 
 include("../../src/marangoni.jl")
 
-# ── Parameters ────────────────────────────────────────────────────────────────
+# -- Parameters ----------------------------------------------------------------
 
 Ns   = 128
 M    = 16
-α    = π/2
-a, b = 1.0, 1.0
-g(θ) = -cos(θ)
+s₀   = π/2
+g(s) = -cos(s)
+
+aspect_ratio = 1.0
+a = sqrt(aspect_ratio)
+b = 1.0 / a
+
 dvals = [5.0, 10.0, 15.0, 20.0]   # center-to-center spacings between adjacent particles
 θ0   = π/2   # orientation angle of all particles
 
-γ(s)   =  a*cos(s) + im*b*sin(s)
-γs(s)  = -a*sin(s) + im*b*cos(s)
-γss(s) = -a*cos(s) - im*b*sin(s)
+Ω, Γ_D, Γ_N = surfer(a, b, s₀, Ns, M)
 
-Ω   = ellipse(a, b, M)
-Γ_D = openarc(γ, γs, γss, Ns; dom=[α, 2π-α], quad=:open_weight)
-Γ_N = openarc(γ, γs, γss, Ns; dom=[-α, α], quad=:open)
-
-# ── Compute single-particle speed for normalization ───────────────────────────
+# -- Compute single-particle speed for normalization ---------------------------
 
 U0_vec, _, _, _ = marangoni_solve([0.0+0im], [θ0], Ω, Γ_D, Γ_N, g)
 U0 = hypot(U0_vec[1][1], U0_vec[1][2])
 @printf("Isolated particle speed U0 = %.6f\n", U0)
 
-# ── Sweep over odd N and spacing d ────────────────────────────────────────────
+# -- Sweep over odd N and spacing d --------------------------------------------
 
 Nvals    = 1:2:13
 U_center = zeros(length(Nvals), length(dvals))
@@ -42,7 +45,7 @@ for (j, d) in enumerate(dvals), (i, N) in enumerate(Nvals)
     @printf("d = %4.1f  N = %2d:  |U| = %.6f  (|U|/U0 = %.4f)\n", d, N, uc, uc / U0)
 end
 
-# ── Write results ─────────────────────────────────────────────────────────────
+# -- Write results -------------------------------------------------------------
 
 outfile = joinpath(@__DIR__, "center_speed_vs_N.dat")
 open(outfile, "w") do io
@@ -53,7 +56,7 @@ open(outfile, "w") do io
 end
 println("Written to $outfile")
 
-# ── Plot ──────────────────────────────────────────────────────────────────────
+# -- Plot ----------------------------------------------------------------------
 
 p = plot(collect(Nvals), U_center ./ U0;
          xlabel  = "N",

@@ -1,39 +1,34 @@
-"""
-Evaluate the surfactant concentration field and surface velocity for a snapshot
-of the a=2 pair trajectory and write the result to a dat file for plotting in MATLAB.
-
-Output: concentration_snapshot.dat
-  Line 1: # Nx=... Ny=... t=...
-  Line 2: x values (Nx floats)
-  Line 3: y values (Ny floats)
-  Lines 4..(3+Ny):   phi matrix, Ny rows × Nx columns
-  Lines (4+Ny)..(3+2Ny): bx matrix (x-component of surface velocity)
-  Lines (4+2Ny)..(3+3Ny): by matrix (y-component of surface velocity)
-"""
+# Surfactant concentration and surface velocity for a snapshot of a pair trajectory,
+# for plotting in MATLAB.
+#
+# Output: concentration_snapshot.dat
+#   Line 1: # Nx=... Ny=... t=... ucm=... vcm=...
+#   Line 2: x values (Nx floats)
+#   Line 3: y values (Ny floats)
+#   Lines 4..(3+Ny):        ϕ matrix, Ny rows × Nx columns
+#   Lines (4+Ny)..(3+2Ny):  u matrix (x-velocity)
+#   Lines (4+2Ny)..(3+3Ny): v matrix (y-velocity)
 
 using DelimitedFiles
 using Statistics
 
 include("../src/marangoni.jl")
 
-# ── Geometry (a=2, b=1/a, fixed area) ─────────────────────────────────────────
+# -- Geometry ------------------------------------------------------------------
 
-a, b  = 1.0, 1.0
-α_arc = π/2
-g(θ)  = -cos(θ)
+aspect_ratio = 1.0
+a = sqrt(aspect_ratio)
+b = 1.0 / a
+
+s₀   = π/2
+g(s) = -cos(s)
 
 M  = 16
 Ns = 128
 
-γ(s)   =  a*cos(s) + im*b*sin(s)
-γs(s)  = -a*sin(s) + im*b*cos(s)
-γss(s) = -a*cos(s) - im*b*sin(s)
+Ω, Γ_D, Γ_N = surfer(a, b, s₀, Ns, M)
 
-Ω   = ellipse(a, b, M)
-Γ_D = openarc(γ, γs, γss, Ns; dom=[α_arc, 2π - α_arc])
-Γ_N = openarc(γ, γs, γss, Ns; dom=[-α_arc, α_arc])
-
-# ── Load snapshot from trajectory dat file ─────────────────────────────────────
+# -- Load snapshot from trajectory dat file ------------------------------------
 
 datfile = joinpath(@__DIR__, "../data/disk", "a1.0000_b1.0000_d16.0.dat")
 A = readdlm(datfile)
@@ -48,7 +43,7 @@ xcm = [row[2] + im*row[3], row[5] + im*row[6]]
 @printf("  xcm = [%.4f%+.4fi, %.4f%+.4fi]\n", real(xcm[1]), imag(xcm[1]), real(xcm[2]), imag(xcm[2]))
 @printf("  θcm = [%.4f, %.4f]\n", θcm[1], θcm[2])
 
-# ── Solve: surfactant + Stokes mobility ───────────────────────────────────────
+# -- Solve: surfactant + Stokes mobility ---------------------------------------
 
 println("Solving surfactant...")
 σ, ϕinf, Γ = surfactant_solve(xcm, θcm, Γ_D, Γ_N, g)
@@ -73,7 +68,7 @@ F = [zeros(3) for _ in 1:Nparticles]
 f_body, U = suspension_mobility_solve(xcm, θcm, uinf, nothing, F, Ω)
 println("Done. U[1] = $(U[1])")
 
-# ── Evaluate concentration and velocity on grid ────────────────────────────────
+# -- Evaluate concentration and velocity on grid -------------------------------
 
 pad  = 5.0
 Nplt = 200
@@ -110,7 +105,7 @@ for k in 1:Nparticles
     v[inside] .= NaN
 end
 
-# ── Write to file ─────────────────────────────────────────────────────────────
+# -- Write results -------------------------------------------------------------
 
 function write_matrix(io, M, Nplt)
     for iy in 1:Nplt

@@ -1,4 +1,11 @@
-
+# Accuracy of the far-field multipole expansion for a pair of surfers: compares the full
+# surface velocity with the sum of per-particle monopole and dipole contributions, taking
+# the maximum error over circles of radius `rvals`, for each orientation in
+# `θcm_configs`. Moments come from the isolated-particle solve, or from the pair solve
+# if `use_2p_multipoles` is set.
+#
+# Output: output/multipole_2p.dat
+#   r  followed by the maximum error for each configuration
 
 include("../../src/marangoni.jl")
 
@@ -16,22 +23,20 @@ function rotate_dipole(m1, θ)
     return [c*m1[1] - s*m1[2], s*m1[1] + c*m1[2]]
 end
 
-# ── Setup ─────────────────────────────────────────────────────────────────────
+# -- Setup ---------------------------------------------------------------------
 
-Ns    = 1024
-M     = 32
-α_arc = π/2
-a, b  = 1.0, 1.0
-g(s)  = -cos(s)
+Ns   = 1024
+M    = 32
+s₀   = π/2
+g(s) = -cos(s)
 
-γ(s)   =  a*cos(s) + im*b*sin(s)
-γs(s)  = -a*sin(s) + im*b*cos(s)
-γss(s) = -a*cos(s) - im*b*sin(s)
-Ω   = ellipse(a, b, M)
-Γ_D = openarc(γ, γs, γss, Ns; dom=[α_arc, 2π - α_arc])
-Γ_N = openarc(γ, γs, γss, Ns; dom=[-α_arc, α_arc])
+aspect_ratio = 1.0
+a = sqrt(aspect_ratio)
+b = 1.0 / a
 
-# ── Single-particle multipoles (body frame, θ = 0) ────────────────────────────
+Ω, Γ_D, Γ_N = surfer(a, b, s₀, Ns, M)
+
+# -- Single-particle multipoles ------------------------------------------------
 
 _, σ_sp, Γ_sp, _ = marangoni_solve(Ω, Γ_D, Γ_N, g)
 
@@ -42,7 +47,7 @@ m0_sp, m1_sp = surfactant_multipoles(σ_D_sp, Γ_D_sp, σ_N_sp, Γ_N_sp)
 
 @printf("Single-particle: m0 = %+.6f  m1 = (%+.6f, %+.6f)\n", m0_sp, m1_sp...)
 
-# ── Two-particle solve ────────────────────────────────────────────────────────
+# -- Two-particle solve --------------------------------------------------------
 
 d   = 100.0
 xcm = [-d/2 + 0im, d/2 + 0im]
@@ -50,7 +55,7 @@ xcm = [-d/2 + 0im, d/2 + 0im]
 
 use_2p_multipoles = false   # if true, compute m0/m1 from the two-particle BIM solve
 
-# ── Force density on each particle's Stokes domain ───────────────────────────
+# -- Force density on each particle's Stokes domain ----------------------------
 
 function particle_force_density(k, xcm, θcm, U_all, σ, Γ, Ω)
     pts = exp(im*θcm[k]) .* Ω.z .+ xcm[k]
@@ -74,8 +79,7 @@ function particle_force_density(k, xcm, θcm, U_all, σ, Γ, Ω)
     return f, Ω_placed
 end
 
-
-# ── Max error over circle of radius r ────────────────────────────────────────
+# -- Max error over circle of radius r -----------------------------------------
 
 rvals         = [8.0, 16.0, 32.0, 64.0, 128.0, 256.0]
 θcm_configs   = [[0.0, 0.0], [π/2, π/2]]
@@ -152,10 +156,11 @@ end
 
 all_errors = max_errors
 
-out_dir = joinpath(@__DIR__, "output")
-mkpath(out_dir)
+outdir = joinpath(@__DIR__, "output")
+mkpath(outdir)
+outfile = joinpath(outdir, "multipole_2p.dat")
 
-open(joinpath(out_dir, "multipole_2p.dat"), "w") do io
+open(outfile, "w") do io
     @printf(io, "# r   max_err_th0   max_err_thpi2\n")
     for ir in eachindex(rvals)
         @printf(io, "%.6f  %.10e  %.10e\n",
@@ -163,4 +168,4 @@ open(joinpath(out_dir, "multipole_2p.dat"), "w") do io
     end
 end
 
-println("\nWrote output/multipole_2p.dat")
+println("\nWrote $outfile")

@@ -4,7 +4,6 @@
 
 close all
 
-baseDir = fileparts(mfilename('fullpath'));
 P = palette();
 snap_cols = [P.snap(1,:); P.snap(3,:)];
 
@@ -15,7 +14,7 @@ Nc      = numel(ab_vals);
 fig = journal_figure([6.75 2.4], 2, 'tex');
 
 % ── Load frames up to the earliest final time across runs ─────────────────────
-dataDirs = fullfile(baseDir, '..', 'data', 'patch', ab_dirs);
+dataDirs = fullfile(dataRoot, 'patch', ab_dirs);
 files = cell(Nc, 1);  tv = cell(Nc, 1);
 for c = 1:Nc
     f        = dir(fullfile(dataDirs{c}, 'frame_*.dat'));
@@ -94,7 +93,7 @@ end
 % scale bar in (a)
 sb_len = 25;
 line(ax(1), xlims(1) + [0 sb_len], ylims(1)*[1 1], 'Color', 'k', 'LineWidth', 2);
-text(ax(1), xlims(1) + sb_len/2, ylims(1) + 0.02*diff(ylims), '25{\it R}', ...
+text(ax(1), xlims(1) + sb_len/2, ylims(1) + 0.02*diff(ylims), '25{\it{l}}_*', ...
      'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom', 'FontSize', ax(1).FontSize);
 
 % ── Layout ────────────────────────────────────────────────────────────────────

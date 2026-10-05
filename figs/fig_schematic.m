@@ -7,7 +7,7 @@ close all
 
 % ── Load snapshot ────────────────────────────────────────────────────────────
 
-dataDir = fullfile(fileparts(mfilename('fullpath')), '..', 'data', 'schematic');
+dataDir = fullfile(dataRoot, 'schematic');
 fid = fopen(fullfile(dataDir, 'schematic_snapshot.dat'));
 hdr = fgetl(fid);
 hv  = @(name) str2double(regexp(hdr, [' ' name '=([-\d.]+)'], 'tokens', 'once'));

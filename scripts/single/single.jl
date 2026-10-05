@@ -1,33 +1,29 @@
-
+# Single elliptical surfer: solves for the rigid-body velocity, prints the multipole
+# moments, and plots the surfactant concentration.
 
 include("../../src/marangoni.jl")
 
-# ── Parameters ────────────────────────────────────────────────────────────────
+# -- Parameters ----------------------------------------------------------------
 
 aspect_ratio = 2.0
 a = sqrt(aspect_ratio)
-b = 1.0/a
-α = π/2
-g(θ) = -cos(θ)
+b = 1.0 / a
 
-# ── Geometry ──────────────────────────────────────────────────────────────────
+s₀   = π/2
+g(s) = -cos(s)
+
+# -- Geometry ------------------------------------------------------------------
 
 Ns = 1024
 M = 32
 
-γ(s)   =  a * cos(s) + im * b * sin(s)
-γs(s)  = -a * sin(s) + im * b * cos(s)
-γss(s) = -a * cos(s) - im * b * sin(s)
+Ω, Γ_D, Γ_N = surfer(a, b, s₀, Ns, M)
 
-Ω   = ellipse(a, b, M)
-Γ_D = openarc(γ, γs, γss, Ns; dom=[α, 2π-α], quad=:open_weight)
-Γ_N = openarc(γ, γs, γss, Ns; dom=[-α, α], quad=:open)
-
-# ── Solve ─────────────────────────────────────────────────────────────────────
+# -- Solve ---------------------------------------------------------------------
 
 U, σ, Γ, ϕinf = marangoni_solve(Ω, Γ_D, Γ_N, g)
 
-# ── Multipoles ────────────────────────────────────────────────────────────────
+# -- Multipoles ----------------------------------------------------------------
 
 multipoles = marangoni_multipoles(Ω, Γ_D, Γ_N, g)
 
@@ -37,7 +33,7 @@ multipoles = marangoni_multipoles(Ω, Γ_D, Γ_N, g)
 @printf("surfactant monopole = (%.6f, %.6f)\n", multipoles.surf_monopole...)
 @printf("surfactant dipole   = [%.6f %.6f; %.6f %.6f]\n", multipoles.surf_dipole...)
 
-# ── Plot concentration ────────────────────────────────────────────────────────
+# -- Plot concentration --------------------------------------------------------
 
 p = plot_concentration([0.0im], σ, ϕinf, Γ)
 display(p)

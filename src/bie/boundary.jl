@@ -88,7 +88,7 @@ are the corresponding chain-ruled derivatives with respect to `t`.
   its first derivative, and its second derivative.
 - `N::Int`: number of quadrature nodes.
 - `dom`: physical parameter interval (default `[-1.0, 1.0]`).
-- `quad`: quadrature scheme — `:open_weight` (default) uses Gauss-Chebyshev nodes with 
+- `quad`: quadrature scheme — `:open_weight` (default) uses Gauss-Chebyshev nodes with
   log-splitting for `1/√(1-t²)` densities; `:open` uses Fejér first-rule nodes
   with singularity subtraction for smooth densities.
 

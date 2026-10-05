@@ -3,13 +3,12 @@
 
 close all;
 
-baseDir = fileparts(mfilename('fullpath'));
 P = palette();
 
 fig = journal_figure([6.75, 4.35], 2, 'tex');
 
 % ── Fields ────────────────────────────────────────────────────────────────────
-dataDir = fullfile(baseDir, '..', 'data', 'antiparallel');
+dataDir = fullfile(dataRoot, 'antiparallel');
 col   = P.col;
 aspan = [1.0/2.0, 1.0, 2.0];
 th    = [-pi/2, pi/2];
@@ -70,7 +69,7 @@ for k = 1:Np
 end
 
 cb = colorbar(ax(end), 'Location', 'eastoutside', 'Ticks', 0:0.5:1);
-cb.Title.String = '\phi';
+cb.Title.String = '{\it{c}}';
 
 
 % ── Separation and orientation vs time ───────────────────────────────────────
@@ -79,7 +78,7 @@ traj_d  = [5.0, 4.0, 1.6];
 Nt = numel(traj_ab);
 
 % single-particle U, β, λ for the far-field ODEs (5.2)-(5.3)
-E = readmatrix(fullfile(baseDir, '..', 'scripts', 'single', 'equilibrium_separation.dat'), 'NumHeaderLines', 1);
+E = readmatrix(fullfile(dataRoot, 'single', 'equilibrium_separation.dat'), 'NumHeaderLines', 1);
 
 cmap = P.cmap(Nt+1);
 cmap = cmap(2:end, :);

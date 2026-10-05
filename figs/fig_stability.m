@@ -3,7 +3,7 @@ close all
 
 fig = journal_figure([6.75 2.5], 2, 'tex');
 
-load(fullfile(fileparts(mfilename('fullpath')), '..', 'data', 'stability', 'growth_rate.mat'));
+load(fullfile(dataRoot, 'stability', 'growth_rate.mat'));
 
 [K, PH] = meshgrid(kh, ph);
 
@@ -48,7 +48,7 @@ yticklabels(ax(2:3), {});
 legend(ax(1), 'Location', 'southwest', 'Color', 'none');
 
 cb = colorbar(ax(3));
-cb.Title.String = 'Re({\it\sigma}^\prime)';
+cb.Title.String = 'Re({\it\lambda}^\prime)';
 cb.Title.FontName = 'Times';
 cb.Title.FontSize = ax(3).FontSize;
 cb.Ticks = 0:0.1:0.2;

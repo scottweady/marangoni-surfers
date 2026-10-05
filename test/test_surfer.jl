@@ -1,19 +1,18 @@
+# Circular surfer with g(s) = cos(2s): convergence in the arc resolution `Ns` against the
+# exact swimming speed (π/16)(1 + cos s₀) sin² s₀.
 
-# Exact swimming speed for a unit disk with g(θ) = cos(2θ), α = π/2.
-println("\nDisk surfer: convergence in Ns")
+println("\nCircular surfer: convergence in Ns against exact speed")
 let
-    α = π/2
-    g(θ) = cos(2θ)
-    Uexact = (π/16) * (1 + cos(α)) * sin(α)^2
+    s₀ = π/2
+    g(s) = cos(2s)
+    Uexact = (π/16) * (1 + cos(s₀)) * sin(s₀)^2
     M = 32
-    a, b = 1.0, 1.0
-    γ(s)   =  a * cos.(s) + im * b * sin.(s)
-    γs(s)  = -a * sin.(s) + im * b * cos.(s)
-    γss(s) = -a * cos.(s) - im * b * sin.(s)
+    aspect_ratio = 1.0
+    a = sqrt(aspect_ratio)
+    b = 1.0 / a
     Ω_ref = ellipse(a, b, M)
     for Ns in Nspan
-        Γ_D = openarc(γ, γs, γss, Ns; dom=[α, 2π-α])
-        Γ_N = openarc(γ, γs, γss, Ns; dom=[-α, α])
+        Γ_D, Γ_N = surfer_boundary(a, b, s₀, Ns)
         U, _ = marangoni_solve(Ω_ref, Γ_D, Γ_N, g)
         err = abs(U[1] - Uexact)
         printerror(Ns, err)

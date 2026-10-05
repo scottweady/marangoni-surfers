@@ -1,14 +1,15 @@
+# Closed-curve operators on the unit circle, where both checks have exact answers.
 
-# K′[1] = 1/2 exactly on any closed curve (interior jump condition)
-println("\nCircle: adjoint double-layer applied to 1 (exact = 0.5)")
+# On the circle K′ coincides with the double layer, so K′ 1 = -1/2
+println("\nCircle: adjoint double layer applied to a constant")
 for N in Nspan
     Γ   = circle(N)
     err = norm(Γ.K′ * ones(N) .+ 0.5, Inf)
     printerror(N, err)
 end
 
-# Manufactured density σ = cos(s), solve laplace_solve(V σ) and recover σ
-println("\nCircle: single-layer solve convergence (σ = cos(s))")
+# Dirichlet data g = cos(s) has exact single-layer density σ = 2 cos(s)
+println("\nCircle: single-layer Dirichlet solve")
 for N in Nspan
     Γ = circle(N)
     σ_exact = 2 * cos.(Γ.s)

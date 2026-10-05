@@ -1,5 +1,5 @@
 
-# ── Kernel matrix assembly ────────────────────────────────────────────────────
+# -- Kernel matrix assembly ----------------------------------------------------
 
 """
     _laplace2d_single_layer_cross(Γ_src, Γ_tgt)

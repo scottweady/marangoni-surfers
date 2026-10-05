@@ -1,19 +1,19 @@
+# Elliptical surfer: convergence in the Stokes expansion order `M`, with the arcs fixed at
+# `Ns_ref`, against the semi-analytical velocity
+#
+#     u_{cm,i} = (m_i - m_0) / (2π a b) ∫_Γ xᵢ σ dΓ,
+#
+# where m_0 = b/2 K(ε²), m_1 = b/(2ε²) [K(ε²) - E(ε²)], ε = √(1 - b²/a²).
 
 using SpecialFunctions: ellipk, ellipe
 
-# Ellipse surfer: convergence against the semi-analytical velocity formula
-#   u_{cm,i} = (m_i - m_0) / (2π a b) * ∫_Γ xᵢ σ dΓ
-# where m_0 = b/2 K(ε), m_1 = b/(2ε) [K(ε) - E(ε)], ε = sqrt(1 - b²/a²).
-# Only the Laplace BIM (arc quadrature) contributes to the error.
-println("\nEllipse surfer (a=2.0, b=1.0): convergence vs semi-analytical solution")
+println("\nElliptical surfer: convergence in M against semi-analytical speed")
 let
-    α = π/2
+    s₀ = π/2
     g(s) = -cos(s)
-    a = sqrt(4.0)
-    b = 1.0/a
-    γ(s)   =  a * cos(s) + im * b * sin(s)
-    γs(s)  = -a * sin(s) + im * b * cos(s)
-    γss(s) = -a * cos(s) - im * b * sin(s)
+    aspect_ratio = 4.0
+    a = sqrt(aspect_ratio)
+    b = 1.0 / a
 
     ε  = sqrt(1 - b^2/a^2)
     m0 = b/2 * ellipk(ε^2)
@@ -26,18 +26,14 @@ let
     Ns_ref = 1024
     M_ref = 48
 
-    Γ_D_ref = openarc(γ, γs, γss, Ns_ref; dom=[α, 2π-α])
-    Γ_N_ref = openarc(γ, γs, γss, Ns_ref; dom=[-α, α], quad=:open)
-    Ω_ref = ellipse(a, b, M_ref)
+    Ω_ref, Γ_D_ref, Γ_N_ref = surfer(a, b, s₀, Ns_ref, M_ref)
     _, σ_ref, Γ_ref, _ = marangoni_solve(Ω_ref, Γ_D_ref, Γ_N_ref, g)
     Uref = semi_analytical(σ_ref, Γ_ref)
-    
-    for Ns in Nspan
-        Ω = ellipse(a, b, Ns)
-        Γ_D = openarc(γ, γs, γss, Ns_ref; dom=[α, 2π-α])
-        Γ_N = openarc(γ, γs, γss, Ns_ref; dom=[-α, α], quad=:open)
-        U, σ, Γ, _ = marangoni_solve(Ω, Γ_D, Γ_N, g)
+
+    for M in Nspan
+        Ω = ellipse(a, b, M)
+        U, _ = marangoni_solve(Ω, Γ_D_ref, Γ_N_ref, g)
         err = abs(U[1] - Uref)
-        printerror(Ns, err)
+        printerror(M, err)
     end
 end

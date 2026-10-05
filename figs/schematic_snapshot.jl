@@ -1,43 +1,39 @@
-"""
-Evaluate the surfactant field of a random particle configuration and write it to a dat
-file for the schematic figure (fig_schematic.m).
-
-Output: data/schematic/schematic_snapshot.dat
-  Line 1: # Nx=... Ny=... N=... a=... b=... k=... Nz=... Nb=...
-  Line 2: x values (Nx floats)
-  Line 3: y values (Ny floats)
-  Line 4: particle x centers (N floats)
-  Line 5: particle y centers (N floats)
-  Line 6: particle orientations θ (N floats)
-  Next Ny lines: phi matrix, Ny rows × Nx columns (NaN inside particles)
-  Next line: zoom x values (Nz floats), centered on particle k
-  Next line: zoom y values (Nz floats)
-  Next Nz lines: zoom phi matrix, Nz rows × Nz columns (NaN inside particles)
-  Next line: boundary parameter s ∈ (-π/2, 3π/2) of particle k (Nb floats)
-  Next line: phi on the boundary of particle k (Nb floats)
-"""
+# Surfactant concentration for a random particle configuration, for the schematic figure
+# (fig_schematic.m).
+#
+# Output: data/schematic/schematic_snapshot.dat
+#   Line 1: # Nx=... Ny=... N=... a=... b=... k=... Nz=... Nb=...
+#   Line 2: x values (Nx floats)
+#   Line 3: y values (Ny floats)
+#   Line 4: particle x centers (N floats)
+#   Line 5: particle y centers (N floats)
+#   Line 6: particle orientations θ (N floats)
+#   Next Ny lines: ϕ matrix, Ny rows × Nx columns (NaN inside particles)
+#   Next line: zoom x values (Nz floats), centered on particle k
+#   Next line: zoom y values (Nz floats)
+#   Next Nz lines: zoom ϕ matrix, Nz rows × Nz columns (NaN inside particles)
+#   Next line: boundary parameter s of particle k (Nb floats)
+#   Next line: ϕ on the boundary of particle k (Nb floats)
 
 using Random, Statistics
 
 include("../src/marangoni.jl")
 
-# ── Geometry ─────────────────────────────────────────────────────────────────
+# -- Geometry ------------------------------------------------------------------
 
-a     = sqrt(2.0)
-b     = 1.0 / a
-α_arc = π/2
-g(θ)  = -cos(θ)
+aspect_ratio = 2.0
+a = sqrt(aspect_ratio)
+b = 1.0 / a
+
+s₀   = π/2
+g(s) = -cos(s)
 
 Ns = 128
 
-γ(s)   =  a*cos(s) + im*b*sin(s)
-γs(s)  = -a*sin(s) + im*b*cos(s)
-γss(s) = -a*cos(s) - im*b*sin(s)
+γ(s) = a*cos(s) + im*b*sin(s)
+Γ_D, Γ_N = surfer_boundary(a, b, s₀, Ns)
 
-Γ_D = openarc(γ, γs, γss, Ns; dom=[α_arc, 2π - α_arc])
-Γ_N = openarc(γ, γs, γss, Ns; dom=[-α_arc, α_arc])
-
-# ── Random initial configuration (rejection sampling) ────────────────────────
+# -- Random initial configuration (rejection sampling) -------------------------
 
 Random.seed!(3)
 Nparticles = 14
@@ -51,7 +47,7 @@ while length(xcm) < Nparticles
 end
 θcm = 2π .* rand(Nparticles)
 
-# ── Surfactant solve ─────────────────────────────────────────────────────────
+# -- Surfactant solve ----------------------------------------------------------
 
 σ, ϕinf, Γ = surfactant_solve(xcm, θcm, Γ_D, Γ_N, g)
 
@@ -104,14 +100,14 @@ onD = sb .> π/2
 @printf("Max |ϕ - g| on Γ_D: %.2e\n", maximum(abs.(ϕb[onD] .- g.(sb[onD]))))
 @printf("Field range: [%.3f, %.3f]\n", minimum(filter(!isnan, ϕ)), maximum(filter(!isnan, ϕ)))
 
-# ── Write ────────────────────────────────────────────────────────────────────
+# -- Write results -------------------------------------------------------------
 
 write_row(io, v) = println(io, join([@sprintf("%.10e", x) for x in v], " "))
 write_matrix(io, A) = foreach(i -> write_row(io, A[i, :]), axes(A, 1))
 
-dataDir = joinpath(@__DIR__, "..", "data", "schematic")
-mkpath(dataDir)
-outfile = joinpath(dataDir, "schematic_snapshot.dat")
+outdir = joinpath(@__DIR__, "..", "data", "schematic")
+mkpath(outdir)
+outfile = joinpath(outdir, "schematic_snapshot.dat")
 open(outfile, "w") do io
     @printf(io, "# Nx=%d Ny=%d N=%d a=%.10f b=%.10f k=%d Nz=%d Nb=%d\n",
             Nplt, Nplt, Nparticles, a, b, k, Nz, Nb)

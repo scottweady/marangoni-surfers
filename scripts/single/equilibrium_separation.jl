@@ -1,5 +1,3 @@
-
-
 # Equilibrium separation of an anti-parallel pair, predicted by the far-field
 # multipole expansion:
 #
@@ -15,37 +13,31 @@
 
 include("../../src/marangoni.jl")
 
-# ── Parameters ────────────────────────────────────────────────────────────────
+# -- Parameters ----------------------------------------------------------------
 
-α = π/2
-g(θ) = -cos(θ)
+s₀ = π/2
+g(s) = -cos(s)
 
-ratios = exp.(range(log(1.0/16.0), log(16.0), length=25))   # a/b, log-spaced, includes 1
+aspect_ratios = exp.(range(log(1.0/16.0), log(16.0), length=25))   # log-spaced, includes 1
 
-# ── Geometry ──────────────────────────────────────────────────────────────────
+# -- Geometry ------------------------------------------------------------------
 
 Ns = 64
 M = 16
 
-# ── Sweep ─────────────────────────────────────────────────────────────────────
+# -- Sweep ---------------------------------------------------------------------
 
 uS_vals = Float64[]
 β_vals  = Float64[]
 λ_vals  = Float64[]
 r_vals  = Float64[]
 
-for ratio in ratios
+for aspect_ratio in aspect_ratios
 
-    a = sqrt(ratio)
-    b = 1.0 / sqrt(ratio)
+    a = sqrt(aspect_ratio)
+    b = 1.0 / a
 
-    γ(s)   =  a * cos(s) + im * b * sin(s)
-    γs(s)  = -a * sin(s) + im * b * cos(s)
-    γss(s) = -a * cos(s) - im * b * sin(s)
-
-    Ω   = ellipse(a, b, M)
-    Γ_D = openarc(γ, γs, γss, Ns; dom=[α, 2π-α])
-    Γ_N = openarc(γ, γs, γss, Ns; dom=[-α, α])
+    Ω, Γ_D, Γ_N = surfer(a, b, s₀, Ns, M)
 
     U, σ, _, _ = marangoni_solve(Ω, Γ_D, Γ_N, g)
     σ_D, σ_N = σ[1], σ[2]
@@ -64,27 +56,27 @@ for ratio in ratios
     push!(r_vals,  r)
 
     @printf("a/b = %8.4f:  uS = %.6f  β = %.6f  λ = %+.6f  r = %.6f  (2b = %.4f)\n",
-            ratio, uS, β, λ, r, 2b)
+            aspect_ratio, uS, β, λ, r, 2b)
 
 end
 
-# ── Write results ─────────────────────────────────────────────────────────────
+# -- Write results -------------------------------------------------------------
 
-outfile = joinpath(@__DIR__, "equilibrium_separation.dat")
+outfile = joinpath(@__DIR__, "..", "..", "data", "single", "equilibrium_separation.dat")
 open(outfile, "w") do io
     println(io, "# a/b  a  b  uS  beta  lambda  r  r_contact")
-    for (i, ratio) in enumerate(ratios)
-        a = sqrt(ratio)
-        b = 1.0 / sqrt(ratio)
+    for (i, aspect_ratio) in enumerate(aspect_ratios)
+        a = sqrt(aspect_ratio)
+        b = 1.0 / a
         @printf(io, "%.15e %.15e %.15e %.15e %.15e %.15e %.15e %.15e\n",
-                ratio, a, b, uS_vals[i], β_vals[i], λ_vals[i], r_vals[i], 2b)
+                aspect_ratio, a, b, uS_vals[i], β_vals[i], λ_vals[i], r_vals[i], 2b)
     end
 end
 println("Results written to $outfile")
 
-# ── Plot ──────────────────────────────────────────────────────────────────────
+# -- Plot ----------------------------------------------------------------------
 
-p = plot(ratios, r_vals;
+p = plot(aspect_ratios, r_vals;
          xlabel = "aspect ratio, a/b",
          ylabel = "equilibrium separation, r",
          label  = "β/(4π uˢ)(1 - λ/2)",
@@ -92,7 +84,7 @@ p = plot(ratios, r_vals;
          marker = :circle,
          legend = :topright)
 
-plot!(p, ratios, 2 ./ sqrt.(ratios); label = "contact, 2b", linestyle = :dash, color = :black)
+plot!(p, aspect_ratios, 2 ./ sqrt.(aspect_ratios); label = "contact, 2b", linestyle = :dash, color = :black)
 
 display(p)
 readline()

@@ -1,22 +1,27 @@
+# Accuracy of the far-field rigid-body model for a pair of surfers: compares the
+# translational and angular velocities from the full solve with the far-field formulas,
+# parametrized by the self-propulsion speed U0, surfactant dipole strength β, and shape
+# factor γ, over `separations` for each orientation in `θcm_configs`.
+#
+# Output: output/multipole_rb.dat
+#   d  err_u  err_ω  config
 
 include("../../src/marangoni.jl")
 
-# ── Geometry ──────────────────────────────────────────────────────────────────
+# -- Geometry ------------------------------------------------------------------
 
-Ns    = 1024
-M     = 32
-α_arc = π/2
-a, b  = 2.0, 1.0
-g(s)  = -cos(s)
+Ns   = 1024
+M    = 32
+s₀   = π/2
+g(s) = -cos(s)
 
-γ_c(s)   =  a*cos(s) + im*b*sin(s)
-γs(s)  = -a*sin(s) + im*b*cos(s)
-γss(s) = -a*cos(s) - im*b*sin(s)
-Ω   = ellipse(a, b, M)
-Γ_D = openarc(γ_c, γs, γss, Ns; dom=[α_arc, 2π - α_arc])
-Γ_N = openarc(γ_c, γs, γss, Ns; dom=[-α_arc, α_arc])
+aspect_ratio = 2.0
+a = sqrt(aspect_ratio)
+b = 1.0 / a
 
-# ── Single-particle constants (body frame, θ = 0, p = e1) ────────────────────
+Ω, Γ_D, Γ_N = surfer(a, b, s₀, Ns, M)
+
+# -- Single-particle constants -------------------------------------------------
 
 U_sp, σ_sp, Γ_sp, _ = marangoni_solve(Ω, Γ_D, Γ_N, g)
 σ_D_sp, σ_N_sp = σ_sp
@@ -32,7 +37,7 @@ U0 = U_sp[1]   # self-propulsion speed
 
 @printf("U0 = %.6f   β = %.6f   γ = %.6f\n", U0, β, γ_B)
 
-# ── Far-field formulas ────────────────────────────────────────────────────────
+# -- Far-field formulas --------------------------------------------------------
 
 function ucm_ff(i, xcm, θcm)
     p_i = [cos(θcm[i]), sin(θcm[i])]
@@ -62,16 +67,17 @@ function ωcm_ff(i, xcm, θcm)
     return ω
 end
 
-# ── Sweep separations ─────────────────────────────────────────────────────────
+# -- Sweep separations ---------------------------------------------------------
 
 separations   = [8.0, 16.0, 32.0, 64.0, 128.0, 256.0]
 θcm_configs   = [[-π/2, π/2]]
 config_labels = ["θ=0", "θ=π/2"]
 
-out_dir = joinpath(@__DIR__, "output")
-mkpath(out_dir)
+outdir = joinpath(@__DIR__, "output")
+mkpath(outdir)
+outfile = joinpath(outdir, "multipole_rb.dat")
 
-open(joinpath(out_dir, "multipole_rb.dat"), "w") do io
+open(outfile, "w") do io
     @printf(io, "# d   err_u_th0   err_ω_th0   err_u_thpi2   err_ω_thpi2\n")
 
     for (icfg, θcm) in enumerate(θcm_configs)
@@ -96,4 +102,4 @@ open(joinpath(out_dir, "multipole_rb.dat"), "w") do io
     end
 end
 
-println("\nWrote output/multipole_rb.dat")
+println("\nWrote $outfile")

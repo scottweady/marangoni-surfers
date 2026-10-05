@@ -1,64 +1,53 @@
-"""
-Compute the surfactant concentration field and fluid velocity field for a pair
-of ellipses, both oriented in the π/2 direction, across a range of aspect ratios.
-
-Varies aspect ratio a ∈ aspan (fixed area πab = π, so b = 1/a).
-Particles are placed at the same initial condition as pair.jl: separation Δx
-along the x-axis, θcm = π/2 for both.
-
-Outputs one file per aspect ratio: fields_a{a:.4f}_b{b:.4f}.dat
-  Line 1: # Nx=... Ny=... a=... b=...
-  Line 2: x values (Nx floats)
-  Line 3: y values (Ny floats)
-  Lines 4..(3+Ny):       phi matrix (concentration), Ny rows × Nx columns
-  Lines (4+Ny)..(3+2Ny): u matrix (x-velocity)
-  Lines (4+2Ny)..(3+3Ny): v matrix (y-velocity)
-"""
-
-using Printf
+# Surfactant concentration and surface velocity fields for a parallel pair of elliptical
+# surfers separated by `Δx` along the x-axis, sweeping `aspect_ratios` at fixed area.
+#
+# Output: output/fields_a<a>_b<b>.dat, one file per aspect ratio
+#   Line 1: # Nx=... Ny=... a=... b=... d=...
+#   Line 2: x values (Nx floats)
+#   Line 3: y values (Ny floats)
+#   Lines 4..(3+Ny):        ϕ matrix (concentration), Ny rows × Nx columns
+#   Lines (4+Ny)..(3+2Ny):  u matrix (x-velocity)
+#   Lines (4+2Ny)..(3+3Ny): v matrix (y-velocity)
 
 include("../../src/marangoni.jl")
 
-# ── Parameters ───────────────────────────────────────────────────────────────
+# -- Parameters ----------------------------------------------------------------
 
-α_arc = π/2   # arc angle (Dirichlet domain)
-g(θ) = -cos(θ)  # surfactant distribution
+s₀   = π/2
+g(s) = -cos(s)
 
-aspan = [1.0/2.0, 1.0, 2.0]
+aspect_ratios = [0.25, 1.0, 4.0]
 Δx = 8.0  # initial center-to-center separation
 
-# ── Discretization ─────────────────────────────────────────────────────────
+# -- Discretization ------------------------------------------------------------
+
 Ns = 128      # arc quadrature points
 M  = 16       # spectral degree for ellipse
 
-# ── Field grid parameters ───────────────────────────────────────────────────
+# -- Field grid parameters -----------------------------------------------------
+
 pad  = 10.0
 Nplt = 512
 
-out_dir = joinpath(@__DIR__, "output")
-mkpath(out_dir)
+outdir = joinpath(@__DIR__, "output")
+mkpath(outdir)
 
-# ── Main loop over aspect ratio ─────────────────────────────────────────────
+# -- Main loop over aspect ratio -----------------------------------------------
 
-for a in aspan
+for aspect_ratio in aspect_ratios
 
-    b = 1.0 / a  # fixed area: πab = π
+    a = sqrt(aspect_ratio)
+    b = 1.0 / a
 
     @printf("(a, b) = (%.4f, %.4f)\n", a, b)
 
     # Define ellipse and arc boundaries (body frame, θ=0)
-    γ(s)   =  a*cos(s) + im*b*sin(s)
-    γs(s)  = -a*sin(s) + im*b*cos(s)
-    γss(s) = -a*cos(s) - im*b*sin(s)
-
-    Ω   = ellipse(a, b, M)
-    Γ_D = openarc(γ, γs, γss, Ns; dom=[α_arc, 2π - α_arc])
-    Γ_N = openarc(γ, γs, γss, Ns; dom=[-α_arc, α_arc])
+    Ω, Γ_D, Γ_N = surfer(a, b, s₀, Ns, M)
 
     xcm = [-Δx/2 + 0im, Δx/2 + 0im]
     θcm = [π/2, π/2]
 
-    # ── Solve: surfactant + Stokes mobility ─────────────────────────────────
+    # -- Solve: surfactant + Stokes mobility -----------------------------------
 
     println("  Solving surfactant...")
     σ, ϕinf, Γ = surfactant_solve(xcm, θcm, Γ_D, Γ_N, g)
@@ -83,7 +72,7 @@ for a in aspan
     f_body, U = suspension_mobility_solve(xcm, θcm, uinf, nothing, F, Ω)
     @printf("  U[1] = %s\n", U[1])
 
-    # ── Evaluate concentration and velocity on grid ─────────────────────────
+    # -- Evaluate concentration and velocity on grid ---------------------------
 
     xplt = range(minimum(real.(xcm)) - pad, maximum(real.(xcm)) + pad, length=Nplt)
     yplt = range(minimum(imag.(xcm)) - pad, maximum(imag.(xcm)) + pad, length=Nplt)
@@ -118,7 +107,7 @@ for a in aspan
         v[inside] .= NaN
     end
 
-    # ── Write to file ────────────────────────────────────────────────────────
+    # -- Write results ---------------------------------------------------------
 
     function write_matrix(io, A, Nplt)
         for iy in 1:Nplt
@@ -126,9 +115,8 @@ for a in aspan
         end
     end
 
-    filename = @sprintf("fields_a%.4f_b%.4f.dat", a, b)
-    filepath = joinpath(out_dir, filename)
-    open(filepath, "w") do io
+    outfile = joinpath(outdir, @sprintf("fields_a%.4f_b%.4f.dat", a, b))
+    open(outfile, "w") do io
         @printf(io, "# Nx=%d Ny=%d a=%.6f b=%.6f d=%.1f\n", Nplt, Nplt, a, b, Δx)
         println(io, join([@sprintf("%.10e", xv) for xv in xplt], " "))
         println(io, join([@sprintf("%.10e", yv) for yv in yplt], " "))
@@ -137,7 +125,7 @@ for a in aspan
         write_matrix(io, v, Nplt)
     end
 
-    println("  Wrote $filename")
+    println("  Wrote $outfile")
 
 end
 

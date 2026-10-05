@@ -3,8 +3,7 @@
 
 close all;
 
-baseDir = fileparts(mfilename('fullpath'));
-dataDir = fullfile(baseDir, '..', 'data', 'parallel');
+dataDir = fullfile(dataRoot, 'parallel');
 P    = palette();
 col  = P.col;
 
@@ -70,7 +69,7 @@ for k = 1:Np
 end
 
 cb = colorbar(ax(end), 'Location', 'eastoutside', 'Ticks', 0:0.5:1);
-cb.Title.String = '\phi';
+cb.Title.String = '{\it{c}}';
 
 % ── Separation and orientation vs time ───────────────────────────────────────
 files = dir(fullfile(dataDir, 'a*_d*.dat'));
@@ -87,7 +86,7 @@ a_vals = a_vals(isort);
 b_vals = b_vals(isort);
 
 % single-particle U, β, λ for the far-field ODEs (5.2)-(5.3)
-E = readmatrix(fullfile(baseDir, '..', 'scripts', 'single', 'equilibrium_separation.dat'), 'NumHeaderLines', 1);
+E = readmatrix(fullfile(dataRoot, 'single', 'equilibrium_separation.dat'), 'NumHeaderLines', 1);
 
 % cmap = colorcet('D11', 'N', numel(files)).^1.5;
 cmap = P.cmap(numel(files));

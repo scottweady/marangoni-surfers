@@ -1,9 +1,9 @@
+# Mixed exterior problem on an ellipse split into two arcs, with the exact solution
+# u = Re Σ cₖ/(z - zₖ) from poles inside the ellipse, so u → 0 and ϕ∞ = 0. Dirichlet data
+# u on Γ_D and exterior Neumann data ∂u/∂n on Γ_N. A wrong-sided jump term shows up as an
+# O(1) error that does not converge.
 
-# ── Mixed exterior problem (ellipse) ─────────────────────────────────────────
-# Exact exterior solution u = Re Σ cₖ/(z - zₖ), poles inside the ellipse, so u → 0
-# (ϕ∞ = 0). Dirichlet data u on Γ_D, exterior Neumann data ∂u/∂n on Γ_N.
-# Catches a wrong-sided jump term: the error is O(1) and does not converge.
-println("\nMixed exterior (ellipse a=2,b=1): manufactured solution, potential at far points")
+println("\nMixed arcs: exterior manufactured solution, potential at far points")
 let
     a, b = 2.0, 1.0
     γ(s)   =  a * cos(s) + im * b * sin(s)

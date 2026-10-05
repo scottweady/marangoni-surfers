@@ -1,5 +1,50 @@
 
 """
+    surfer_boundary(a, b, s₀, Ns)
+
+Dirichlet and Neumann arcs of an elliptical surfer in the body frame.
+
+The ellipse `γ(s) = a cos s + i b sin s` is split into the Neumann arc `s ∈ [-s₀, s₀]` and
+the Dirichlet arc `s ∈ [s₀, 2π - s₀]`. The Dirichlet arc uses `:open_weight` quadrature
+and the Neumann arc uses `:open`.
+
+# Arguments
+- `a`, `b`: semi-axes along `x` and `y`.
+- `s₀`: half-angle of the Neumann arc, in the ellipse parameter `s`.
+- `Ns`: number of quadrature nodes on each arc.
+
+# Returns
+- `(Γ_D, Γ_N)`: the Dirichlet and Neumann arc `Boundary`s.
+"""
+function surfer_boundary(a, b, s₀, Ns)
+
+    γ(s)   =  a * cos(s) + im * b * sin(s)
+    γs(s)  = -a * sin(s) + im * b * cos(s)
+    γss(s) = -a * cos(s) - im * b * sin(s)
+
+    Γ_D = openarc(γ, γs, γss, Ns; dom=[s₀, 2π - s₀], quad=:open_weight)
+    Γ_N = openarc(γ, γs, γss, Ns; dom=[-s₀, s₀], quad=:open)
+    return Γ_D, Γ_N
+
+end
+
+"""
+    surfer(a, b, s₀, Ns, M)
+
+Stokes domain and surfactant arcs of an elliptical surfer in the body frame.
+
+# Arguments
+- `a`, `b`: semi-axes along `x` and `y`.
+- `s₀`: half-angle of the Neumann arc, in the ellipse parameter `s`.
+- `Ns`: number of quadrature nodes on each arc.
+- `M`: expansion order of the Stokes domain.
+
+# Returns
+- `(Ω, Γ_D, Γ_N)`: the Stokes domain and the arcs from [`surfer_boundary`](@ref).
+"""
+surfer(a, b, s₀, Ns, M) = (ellipse(a, b, M), surfer_boundary(a, b, s₀, Ns)...)
+
+"""
     integral(f, Ω)
 
 Domain integral `∫_Ω f dA = ∑ fᵢ dzᵢ`.
@@ -41,7 +86,7 @@ end
 Solve the surfactant Laplace problem given reference arc boundaries.
 
 `Γ_D` and `Γ_N` are reference (body-frame) Dirichlet and Neumann arc boundaries. They
-are rigidly placed at each `(centers[k], orientations[k])` — the self-interaction
+are rigidly placed at each `(xcm[k], θcm[k])` — the self-interaction
 matrices `V`, `K′` are reused since the Laplace kernel is translation/rotation invariant.
 
 # Arguments

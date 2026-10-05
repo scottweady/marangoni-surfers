@@ -1,25 +1,25 @@
+# Time-dependent simulation of a suspension of surfers from a line, hedgehog (concentric
+# rings pointing outward), or perturbed ring configuration, selected by `config`.
+#
+# Output: frames_<a/b>/frame_<n>.png and frame_<n>.dat, one row per particle
+#   t  x  y  θ  ux  uy  ω
 
 include("../../src/marangoni.jl")
 
-# ── Parameters ────────────────────────────────────────────────────────────────
+# -- Parameters ----------------------------------------------------------------
 
-Ns = 64
-M = 16
-α = π/2
+Ns   = 64
+M    = 16
+s₀   = π/2
+g(s) = -cos(s)
 
 aspect_ratio = 0.25
 a = sqrt(aspect_ratio)
 b = 1.0 / a
-g(θ)  = -cos(θ)
 
-Ω   = ellipse(a, b, M)
-γ(s)   =  a*cos(s) + im*b*sin(s)
-γs(s)  = -a*sin(s) + im*b*cos(s)
-γss(s) = -a*cos(s) - im*b*sin(s)
-Γ_D = openarc(γ, γs, γss, Ns; dom=[α, 2π-α])
-Γ_N = openarc(γ, γs, γss, Ns; dom=[-α, α])
+Ω, Γ_D, Γ_N = surfer(a, b, s₀, Ns, M)
 
-# ── Run ───────────────────────────────────────────────────────────────────────
+# -- Run -----------------------------------------------------------------------
 
 config = :hedgehog   # :line, :hedgehog, :courtroom, or :ring
 
@@ -76,7 +76,7 @@ elseif config == :ring
 
 end
 
-frames_dir = joinpath(@__DIR__, "frames_$(round(a/b, digits=4))")
-isdir(frames_dir) && rm(frames_dir; recursive=true)
+outdir = joinpath(@__DIR__, "frames_$(round(a/b, digits=4))")
+isdir(outdir) && rm(outdir; recursive=true)
 println("Running simulation...")
-traj_xcm, traj_θcm, traj_t = suspension_simulate(xcm, θcm, Ω, Γ_D, Γ_N, g; t_end=200.0, plot_mode=:concentration, plot_every=5.0, output_file="hedgehog.dat", plot_dir=frames_dir, dt_max=5.0, colors=colors, cmap=cmap)
+traj_xcm, traj_θcm, traj_t = suspension_simulate(xcm, θcm, Ω, Γ_D, Γ_N, g; t_end=200.0, plot_mode=:concentration, plot_every=5.0, output_file="hedgehog.dat", plot_dir=outdir, dt_max=5.0, colors=colors, cmap=cmap)

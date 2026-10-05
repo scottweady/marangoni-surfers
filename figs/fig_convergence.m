@@ -11,7 +11,7 @@
 
 close all;
 
-baseDir = fullfile(fileparts(mfilename('fullpath')), '..', 'data', 'convergence');
+baseDir = fullfile(dataRoot, 'convergence');
 
 [M, errM, ratios] = load_errors(fullfile(baseDir, 'convergence_expansion.dat'));
 [N, errN, ~     ] = load_errors(fullfile(baseDir, 'convergence_boundary.dat'));

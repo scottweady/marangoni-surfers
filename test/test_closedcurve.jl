@@ -1,9 +1,8 @@
+# Dirichlet solve on a closed star-shaped curve via `closedcurve`, with exact solution
+# u(x, y) = x. Checks the interior potential 𝒱σ + ϕ∞ against Re(ζ), and the boundary
+# normal derivative σ/2 + K′σ against the exact Re(n̂).
 
-# ── Curve (ellipse) Dirichlet test ───────────────────────────────────────────
-# Solve ∫_Γ G(ζ,γ') σ(γ') ds' + ϕ∞ = g on an ellipse using the `closedcurve` constructor.
-# Exact solution: u(x,y) = x  (harmonic everywhere).
-# After solving, evaluate 𝒱(ζ, σ, Γ) + ϕ∞ at interior points and compare to Re(ζ).
-println("\nCurve (star γ=(1+a·cos5s)eⁱˢ, a=0.3): laplace_solve Dirichlet solve, u=x")
+println("\nClosed curve: Dirichlet solve, u = x")
 let
     a = 0.3
     γ(s)   = (1 + a * cos(5s)) * exp(im*s)
@@ -24,8 +23,7 @@ let
         printerror(N, err)
     end
 
-    # Interior normal derivative: ∂u/∂n = -σ/2 + K′σ
-    # Exact: ∂(Re ζ)/∂n = Re(outward normal) = Re(i γt/|γt|) = -Im(γt)/|γt|
+    # Outward normal n̂ = -i γt/|γt|, so ∂(Re ζ)/∂n = Im(γt)/|γt|
     println("  boundary normal derivative")
     for N in Nspan
         Γ = closedcurve(γ, γs, γss, N)

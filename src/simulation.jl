@@ -3,7 +3,8 @@
     suspension_simulate(xcm0, θcm0, Ω, Γ_D, Γ_N, g;
                         t_end=10.0, dt_min=1e-4, dt_max=10.0, safety=0.5,
                         plot_every=10.0, plot_mode=:concentration,
-                        output_file="", plot_dir="", tol=1e-6)
+                        output_file="", plot_dir="", tol=1e-3,
+                        colors=fill(:white, length(xcm0)), cmap=:viridis, pad=4.0)
 
 Time-integrate a suspension of Marangoni surfers with adaptive-step RK2.
 
@@ -33,7 +34,7 @@ approaching) the step is limited by gap / closing-speed, scaled by `safety` and 
   :distance` (default `""`, no file output).
 - `plot_dir`: if non-empty, save configuration `.dat` files here (default `""`, no file
   output). Frames are displayed regardless.
-- `tol`: FMM/GMRES accuracy tolerance passed to [`marangoni_solve`](@ref) (default `1e-6`).
+- `tol`: FMM/GMRES accuracy tolerance passed to [`marangoni_solve`](@ref) (default `1e-3`).
 - `colors`: per-particle fill colors (default `:white` for all particles).
 - `cmap`: heatmap colormap (default `:viridis`).
 - `pad`: margin added around the current particle centers when computing each frame's
