@@ -126,38 +126,55 @@ domain, in the body frame.
 
 `psh` approximates the inner products `∫ conj(Y_lm) u dA_ζ / w` by quadrature, which
 converges slowly for the self flow since it is not smooth at ∂Ω. The inner products are
-instead evaluated exactly on the arcs with [`_reciprocal_kernel`](@ref), taking
-`μ = conj(Y_lm) / (w J)`, where `J` is the area Jacobian of the map from the unit disk.
+instead evaluated exactly on the arcs with the reciprocal kernel of
+[`_reciprocal_kernel`](@ref), taking `μ = conj(Y_lm) / (w J)`, where `J` is the area
+Jacobian of the map from the unit disk.
+
+The kernel is built for all modes at once in coefficient space: `psh` on the even modes is
+the matrix `Y' diag(dw)`, `𝒮` is `K̂_S`, and an even expansion on the rim is evaluated
+directly at the arc parameters. The rows for the top degree `l = M` would need `x Y_lm` of
+degree `M + 1`, which `Ω` cannot represent, so they are left zero.
 
 # Arguments
 - `Ω`: Stokes domain.
 - `Γ_D`, `Γ_N`: reference Dirichlet and Neumann arc boundaries, on ∂Ω.
 
 # Returns
-- `(Hx, Hy)`: matrices with `vec(psh(∇ℬ[σ]ᵢ, Ω)) ≈ Hᵢ * [σ_D; σ_N]` on the even modes.
+- `(Hx, Hy)`: matrices with `vec(psh(∇ℬ[σ]ᵢ, Ω)) ≈ Hᵢ * [σ_D; σ_N]` on the even modes
+  below the top degree.
 """
 function marangoni_self_operator(Ω, Γ_D, Γ_N)
 
-    x, y = real.(Ω.z), imag.(Ω.z)
-    J    = Ω.dz ./ Ω.dζ
-    A    = _boundary_interp(Ω, [Γ_D.s; Γ_N.s]) .* [Γ_D.dΓ; Γ_N.dΓ]
     modes = findall(vec(Ω.even))
+    lm    = [(Ω.Lspan[I[1]], Ω.Mspan[I[2]]) for I in CartesianIndices(Ω.shp)[modes]]
 
-    # Traces of the reciprocal kernel h for μ = (φ, 0) and (0, φ), one column per mode
-    Tx = zeros(ComplexF64, size(A, 2), length(modes))
-    Ty = zeros(ComplexF64, size(A, 2), length(modes))
-    for (j, k) in enumerate(modes)
-        lm = CartesianIndices(Ω.shp)[k]
-        φ  = ylm(Ω.Lspan[lm[1]], -Ω.Mspan[lm[2]], Ω.ζ) ./ (Ω.w .* J)
-        Sφ = 𝒮(φ, Ω)
-        Tx[:, j] = vec(trace(𝒮(φ .* x, Ω) .- x .* Sφ, Ω))
-        Ty[:, j] = vec(trace(𝒮(φ .* y, Ω) .- y .* Sφ, Ω))
-    end
+    # Even basis at the Stokes nodes, and psh on the even modes as a matrix
+    x, y = real.(vec(Ω.z)), imag.(vec(Ω.z))
+    J    = vec(Ω.dz ./ Ω.dζ)
+    dw   = vec(repeat(vec(Ω.dw), 1, size(Ω.ζ, 2)))
+    Y    = reduce(hcat, [vec(ylm(l, m, Ω.ζ)) for (l, m) in lm])
+    P    = Y' .* transpose(dw)
 
-    Hx = zeros(ComplexF64, length(Ω.z), size(A, 1))
-    Hy = zeros(ComplexF64, length(Ω.z), size(A, 1))
-    Hx[modes, :] = transpose(A * Tx)
-    Hy[modes, :] = transpose(A * Ty)
+    # Coefficients of 𝒮[φ], 𝒮[x φ] and 𝒮[y φ] for φ = conj(Y_lm) / (w J), one column per mode
+    φw  = conj.(Y) ./ J
+    Sφ  = Ω.K̂_S * (P * φw)
+    Sxφ = Ω.K̂_S * (P * (x .* φw))
+    Syφ = Ω.K̂_S * (P * (y .* φw))
+
+    # Reciprocal kernel on the arcs, evaluating each even mode at the rim point e^{is}
+    s  = [Γ_D.s; Γ_N.s]
+    zb = Ω.f.(cis.(s))
+    Yb = reduce(hcat, [ylm(l, m, 1.0) .* cis.(m .* s) for (l, m) in lm])
+    YS = Yb * Sφ
+    Tx = Yb * Sxφ .- real.(zb) .* YS
+    Ty = Yb * Syφ .- imag.(zb) .* YS
+
+    keep = [k for (k, (l, _)) in enumerate(lm) if l < Ω.Mℓ]
+    dΓ   = [Γ_D.dΓ; Γ_N.dΓ]
+    Hx   = zeros(ComplexF64, length(Ω.z), length(s))
+    Hy   = zeros(ComplexF64, length(Ω.z), length(s))
+    Hx[modes[keep], :] = transpose(Tx[:, keep] .* dΓ)
+    Hy[modes[keep], :] = transpose(Ty[:, keep] .* dΓ)
     return Hx, Hy
 
 end

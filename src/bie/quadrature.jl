@@ -242,3 +242,53 @@ maps to `1/(2(m-1))`.
 function _single_layer_eig_open_weight(M)
     return Diagonal([m == 1 ? log(2)/2 : 1/(2*(m-1)) for m in 1:M])
 end
+
+"""
+    _log_moments(x, M)
+
+Moments `mₖ(x) = ∫₋₁¹ log|x - t| Tₖ(t) dt` of the log kernel against the first `M`
+Chebyshev polynomials, for `|x| < 1`.
+
+Integrating by parts against an antiderivative `Aₖ` of `Tₖ` with `Aₖ(-1) = 0` gives
+
+    mₖ(x) = Aₖ(1) log(1 - x) - Aₖ(x) log((1 - x)/(1 + x)) - ∫₋₁¹ (Aₖ(t) - Aₖ(x))/(t - x) dt,
+
+and the last integral follows from `Dₙ(x) = ∫₋₁¹ (Tₙ(t) - Tₙ(x))/(t - x) dt`, which satisfies
+`D_{n+1} = 2x Dₙ + 2∫₋₁¹ Tₙ dt - D_{n-1}` with `D₀ = 0`, `D₁ = 2`.
+
+# Arguments
+- `x`: target in `(-1, 1)`.
+- `M`: number of moments.
+
+# Returns
+- Vector `[m₀(x), …, m_{M-1}(x)]`.
+"""
+function _log_moments(x, M)
+
+    L  = log((1 - x) / (1 + x))
+    l1 = log(1 - x)
+
+    # Tₙ(x) and Dₙ(x) for n = 0..M
+    T = zeros(M + 1)
+    D = zeros(M + 1)
+    T[1] = 1.0
+    T[2] = x
+    D[2] = 2.0
+    intT(n) = n == 1 ? 0.0 : (1 + (-1)^n) / (1 - n^2)
+    for n in 1:M-1
+        T[n+2] = 2x * T[n+1] - T[n]
+        D[n+2] = 2x * D[n+1] + 2 * intT(n) - D[n]
+    end
+
+    m = zeros(M)
+    m[1] = 2l1 - (1 + x) * L - 2
+    M >= 2 && (m[2] = -(x^2 - 1) / 2 * L - x)
+    for k in 2:M-1
+        A  = (T[k+2] / (k + 1) - T[k] / (k - 1)) / 2 - (-1)^k / (k^2 - 1)
+        A1 = -(1 + (-1)^k) / (k^2 - 1)
+        m[k+1] = A1 * l1 - A * L - (D[k+2] / (k + 1) - D[k] / (k - 1)) / 2
+    end
+
+    return m
+
+end

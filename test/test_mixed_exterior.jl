@@ -2,6 +2,11 @@
 # u = Re Σ cₖ/(z - zₖ) from poles inside the ellipse, so u → 0 and ϕ∞ = 0. Dirichlet data
 # u on Γ_D and exterior Neumann data ∂u/∂n on Γ_N. A wrong-sided jump term shows up as an
 # O(1) error that does not converge.
+#
+# Convergence is algebraic rather than spectral, for two reasons. The exact layer density
+# is smooth across the junctions, while the `:open_weight` quadrature on Γ_D assumes a
+# 1/√(1-t²) edge singularity. And the cross blocks between the arcs use plain quadrature,
+# which is near-singular where the arcs meet.
 
 @testset "Mixed arcs: exterior manufactured solution" begin
     section("Mixed arcs: exterior manufactured solution at far points, refining boundary resolution N")

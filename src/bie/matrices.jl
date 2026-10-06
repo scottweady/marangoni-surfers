@@ -33,11 +33,16 @@ end
 """
     _laplace2d_single_layer_open(t, γ, γt, w)
 
-Single-layer matrix for the Laplace log-kernel on a smooth open arc with Fejér nodes,
-via singularity subtraction.
+Single-layer matrix for the Laplace log-kernel on a smooth open arc with Fejér nodes, by
+product integration.
+
+The kernel is split as `log|γ(t) - γ(t′)| = log|t - t′| + log(|γ(t) - γ(t′)|/|t - t′|)`. The
+smooth remainder is integrated with the Fejér weights. The `log|t - t′|` part is applied
+exactly to the Chebyshev interpolant of the integrand, using the moments from
+[`_log_moments`](@ref) and the transform from [`_cheb_matrix`](@ref).
 
 # Arguments
-- `t`: reference nodes in `(-1,1)`.
+- `t`: `N` Fejér nodes (the Gauss-Chebyshev points) in `(-1,1)`.
 - `γ`, `γt`: curve points and tangents at `t`.
 - `w`: Fejér quadrature weights.
 
@@ -47,24 +52,14 @@ via singularity subtraction.
 function _laplace2d_single_layer_open(t, γ, γt, w)
 
     N = length(t)
-    I1 = zeros(Float64, N, N)
-    I2 = zeros(Float64, N, N)
-    I3 = zeros(Float64, N, N)
 
-    for i in 1:N, j in 1:N
+    arg = (γ .- transpose(γ)) ./ (t .- transpose(t))
+    arg[diagind(arg)] .= γt
+    A = -(1/(2π)) * log.(abs.(arg)) .* transpose(abs.(γt) .* w)
 
-        if i == j
-            I1[i, j] = 0.0
-            I2[i, j] = abs(γt[i]) * log(abs(γt[j])) * w[j]
-            I3[i, j] = abs(γt[i]) * ((1.0 - t[i]) * log(abs(1.0 - t[i])) + (1.0 + t[i]) * log(abs(1.0 + t[i])) - 2.0)
-        else
-            I1[i, j] = log(abs(γ[i] - γ[j])) * abs(γt[j]) * w[j]
-            I2[i, j] = abs(γt[i]) * log(abs(γ[i] - γ[j]) / abs(t[i] - t[j])) * w[j]
-            I3[i, j] = 0.0
-        end
-    end
-
-    A = -1.0 / (2π) * ( (I1 - abs.(γt) .* sum(I1 ./ abs.(γt)', dims=2) .* I(N)) + sum(I2, dims=2) .* I(N) + I3)
+    _, T′ = _cheb_matrix(N)
+    Mₖ = reduce(vcat, [transpose(_log_moments(t[i], N)) for i in 1:N])
+    A .+= -(1/(2π)) * (Mₖ * T′) .* transpose(abs.(γt))
 
     return A
 
