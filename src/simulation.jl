@@ -5,7 +5,7 @@
                         plot_every=10.0, plot_mode=:concentration,
                         output_file="", plot_dir="", tol=1e-3,
                         colors=fill(:white, length(xcm0)), cmap=:viridis, pad=4.0,
-                        verbose=true)
+                        verbose=true, self_op=marangoni_self_operator(Ω, Γ_D, Γ_N))
 
 Time-integrate a suspension of Marangoni surfers with adaptive-step RK2.
 
@@ -41,6 +41,8 @@ approaching) the step is limited by gap / closing-speed, scaled by `safety` and 
 - `pad`: margin added around the current particle centers when computing each frame's
   plot extent, so all particles stay in view as they move (default `4.0`).
 - `verbose`: print the time and step size after each step (default `true`).
+- `self_op`: self-flow operator from [`marangoni_self_operator`](@ref), built once and reused
+  at every step.
 
 # Returns
 - `(traj_xcm, traj_θcm, traj_t)`: the recorded trajectory of particle centers,
@@ -58,7 +60,8 @@ function suspension_simulate(xcm0, θcm0, Ω, Γ_D::Boundary, Γ_N::Boundary, g;
                   colors=fill(:white, length(xcm0)),
                   cmap=:viridis,
                   pad=4.0,
-                  verbose=true)
+                  verbose=true,
+                  self_op=marangoni_self_operator(Ω, Γ_D, Γ_N))
 
     xcm, θcm = copy(xcm0), copy(θcm0)
     Nparticles = length(xcm)
@@ -92,7 +95,7 @@ function suspension_simulate(xcm0, θcm0, Ω, Γ_D::Boundary, Γ_N::Boundary, g;
 
     # Plot frame 0
     if !isempty(plot_dir) || plot_mode != :distance
-        U0, σ0, Γ0, ϕinf0 = marangoni_solve(xcm, θcm, Ω, Γ_D, Γ_N, g; tol=tol)
+        U0, σ0, Γ0, ϕinf0 = marangoni_solve(xcm, θcm, Ω, Γ_D, Γ_N, g; tol=tol, self_op=self_op)
         xlims0, ylims0 = plot_lims(xcm)
         p0 = plot_concentration(xcm, σ0, ϕinf0, Γ0; title="t = 0.00", colors=colors, cmap=cmap, xlims=xlims0, ylims=ylims0)
         display(p0)
@@ -108,11 +111,11 @@ function suspension_simulate(xcm0, θcm0, Ω, Γ_D::Boundary, Γ_N::Boundary, g;
         dt = min(dt, t_end - t, next_plot - t)
 
         # Runge-Kutta 2 for particle positions and orientations
-        U1, σ, Γ, ϕinf = marangoni_solve(xcm, θcm, Ω, Γ_D, Γ_N, g; tol=tol)
+        U1, σ, Γ, ϕinf = marangoni_solve(xcm, θcm, Ω, Γ_D, Γ_N, g; tol=tol, self_op=self_op)
         Δc1 = dt .* [U1[i][1] + im*U1[i][2] for i in 1:Nparticles]
         Δψ1 = dt .* [U1[i][3]                for i in 1:Nparticles]
 
-        U2, _, _, _ = marangoni_solve(xcm .+ Δc1, θcm .+ Δψ1, Ω, Γ_D, Γ_N, g; tol=tol)
+        U2, _, _, _ = marangoni_solve(xcm .+ Δc1, θcm .+ Δψ1, Ω, Γ_D, Γ_N, g; tol=tol, self_op=self_op)
         Δc2 = dt .* [U2[i][1] + im*U2[i][2] for i in 1:Nparticles]
         Δψ2 = dt .* [U2[i][3]                for i in 1:Nparticles]
 

@@ -20,6 +20,7 @@ a = sqrt(aspect_ratio)
 b = 1.0 / a
 
 Ω, Γ_D, Γ_N = surfer(a, b, s₀, Ns, M)
+self_op = marangoni_self_operator(Ω, Γ_D, Γ_N)
 
 # -- Single-particle constants -------------------------------------------------
 
@@ -85,7 +86,7 @@ open(outfile, "w") do io
 
         for d in separations
             xcm  = [-d/2 + 0im, d/2 + 0im]
-            U_bim, _, _, _ = marangoni_solve(xcm, θcm, Ω, Γ_D, Γ_N, g)
+            U_bim, _, _, _ = marangoni_solve(xcm, θcm, Ω, Γ_D, Γ_N, g; self_op=self_op)
 
             err_u = err_ω = 0.0
             for i in 1:2

@@ -3,19 +3,19 @@
 #
 #     -1/(2π) ∫₋₁¹ log|x - y| Tₙ(y) / √(1 - y²) dy = Tₙ(x) / (2n),   n ≥ 1,
 #
-# so Dirichlet data L T₂ / 4 has exact density T₂.
+# so Dirichlet data L T₂ / 4 has exact density T₂, recovered at every resolution.
 
-println("\nSegment: single-layer Dirichlet solve")
-let
+@testset "Segment: single-layer Dirichlet solve" begin
+    section("Segment: single-layer Dirichlet solve, refining boundary resolution N")
+    Nspan = 2:6
     L = 1.0
     σ_exact(s) = 2s^2 - 1
     μ = L/4
 
-    for N in Nspan
+    errs = map(Nspan) do N
         Γ = segment(N; dom=[-L, L])
-        g = μ * σ_exact.(Γ.s)
-        σ, _ = laplace_solve([Γ], [:D], [g])
-        err = norm(σ[1] .- σ_exact.(Γ.s), Inf)
-        printerror(N, err)
+        σ, _ = laplace_solve([Γ], [:D], [μ * σ_exact.(Γ.s)])
+        norm(σ[1] .- σ_exact.(Γ.s), Inf)
     end
+    check_errors(Nspan, errs; every=true)
 end

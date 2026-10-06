@@ -2,8 +2,10 @@
 # an open star-shaped arc, at a target just off the arc along the outward normal.
 # Compared against direct quadrature on a high-N reference arc.
 
-println("\nOpen arc: close evaluation of 𝒱 and K′")
-let
+@testset "Open arc: close evaluation" begin
+    section("Open arc: close evaluation of 𝒱 and K′, refining boundary resolution N")
+    Nspan = sweep(128:96:512, [224])
+
     a      = 0.3
     γ(s)   = (1 + a*cos(5s)) * exp(im*s)
     γs(s)  = im*(1 + a*cos(5s))*exp(im*s) - 5a*sin(5s)*exp(im*s)
@@ -20,19 +22,19 @@ let
     ref_V  = 𝒱(ζ, σref, Γref)
     ref_K′ = -(1/(2π)) * sum(dot.(Ref(n̂), ζ .- Γref.γ) ./ abs2.(ζ .- Γref.γ) .* σref .* Γref.dΓ)
 
-    println("  𝒱_close (single layer)")
-    for N in Nspan
-        Γ   = openarc(γ, γs, γss, N; dom=dom)
-        σ   = σ_fun.(Γ.s)
-        val = 𝒱_close(ζ, σ, Γ)
-        printerror(N, abs(val - ref_V))
-    end
+    arc(N) = (Γ = openarc(γ, γs, γss, N; dom=dom); (Γ, σ_fun.(Γ.s)))
 
-    println("  K′_close (adjoint double layer)")
-    for N in Nspan
-        Γ   = openarc(γ, γs, γss, N; dom=dom)
-        σ   = σ_fun.(Γ.s)
-        val = K′_close(ζ, n̂, σ, Γ)
-        printerror(N, abs(val - ref_K′))
+    subsection("𝒱_close (single layer)")
+    errs = map(Nspan) do N
+        Γ, σ = arc(N)
+        abs(𝒱_close(ζ, σ, Γ) - ref_V)
     end
+    check_errors(Nspan, errs)
+
+    subsection("K′_close (adjoint double layer)")
+    errs = map(Nspan) do N
+        Γ, σ = arc(N)
+        abs(K′_close(ζ, n̂, σ, Γ) - ref_K′)
+    end
+    check_errors(Nspan, errs)
 end

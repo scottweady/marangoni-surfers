@@ -76,6 +76,7 @@ for aspect_ratio in aspect_ratios
 
     γ(s) = a*cos(s) + im*b*sin(s)
     Ω, Γ_D, Γ_N = surfer(a, b, s₀, Ns, M)
+    self_op = marangoni_self_operator(Ω, Γ_D, Γ_N)
 
     z_body    = vcat(Γ_D.γ, Γ_N.γ)
     z_outline = γ.(range(0, 2π; length=201))
@@ -107,11 +108,11 @@ for aspect_ratio in aspect_ratios
                 break
             end
 
-            U, = marangoni_solve(xcm, θcm, Ω, Γ_D, Γ_N, g)
+            U, = marangoni_solve(xcm, θcm, Ω, Γ_D, Γ_N, g; self_op=self_op)
             v, ω = velocities(U)
             dt = min(clamp(cfl_scale * d / maximum(abs, v), dt_min, dt_max), t_max - t)
 
-            U_mid, = marangoni_solve(xcm .+ dt/2 .* v, θcm .+ dt/2 .* ω, Ω, Γ_D, Γ_N, g)
+            U_mid, = marangoni_solve(xcm .+ dt/2 .* v, θcm .+ dt/2 .* ω, Ω, Γ_D, Γ_N, g; self_op=self_op)
             v_mid, ω_mid = velocities(U_mid)
             xcm .+= dt .* v_mid
             θcm .+= dt .* ω_mid

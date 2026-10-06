@@ -59,10 +59,29 @@ Domain integral `∫_Ω f dA = ∑ fᵢ dzᵢ`.
 integral(f, Ω::Domain) = sum(f .* Ω.dz)
 
 """
+    _boundary_interp(Ω, s)
+
+Matrix taking the boundary trace of a domain field to its values at arc parameters `s`, by
+trigonometric interpolation.
+
+# Arguments
+- `Ω`: Stokes domain whose boundary the field is traced to.
+- `s`: arc parameter values at which to evaluate the traced field.
+
+# Returns
+- Matrix `A` with `A * trace(f, Ω)` the traced field values at `s`.
+"""
+function _boundary_interp(Ω, s)
+    N     = size(Ω.z, 2)
+    freqs = fftfreq(N) * N
+    return cis.(s .* transpose(freqs)) * (fft(Matrix{ComplexF64}(I, N, N), 1) ./ N)
+end
+
+"""
     _boundary_eval(f, Ω, s)
 
 Evaluate a domain field `f` at arc parameter values `s` by tracing to the boundary and
-FFT-interpolating.
+interpolating with [`_boundary_interp`](@ref).
 
 # Arguments
 - `f`: field sampled at the quadrature nodes of `Ω`.
@@ -72,12 +91,94 @@ FFT-interpolating.
 # Returns
 - The traced field values at `s`.
 """
-function _boundary_eval(f, Ω, s)
-    vals  = trace(f, Ω)
-    N     = length(vals)
-    f̂     = fft(vals) ./ N
-    freqs = fftfreq(N) * N
-    return real.(sum(f̂[k] .* cis.(freqs[k] .* s) for k in 1:N))
+_boundary_eval(f, Ω, s) = _boundary_interp(Ω, s) * vec(trace(f, Ω))
+
+"""
+    _reciprocal_kernel(μ, Ω, Γ_D, Γ_N)
+
+Boundary kernel that moves a domain integral of the Marangoni flow onto the surfactant arcs,
+
+    ∫_Ω μ · ∇ℬ[σ] dA = ∫_{Γ_D} h σ_D ds + ∫_{Γ_N} h σ_N ds,
+
+with `h = 𝒮[μ₁x + μ₂y] - (x 𝒮[μ₁] + y 𝒮[μ₂])` traced to the arcs. The arcs lie on ∂Ω, where
+`∇ℬ[σ]` is not smooth, while `h` is.
+
+# Arguments
+- `μ`: tuple `(μ₁, μ₂)` of fields sampled at the quadrature nodes of `Ω`, with the `1/w`
+  edge behaviour of a force density.
+- `Ω`: Stokes domain.
+- `Γ_D`, `Γ_N`: reference Dirichlet and Neumann arc boundaries, on ∂Ω.
+
+# Returns
+- `(h_D, h_N)`: the kernel at the nodes of `Γ_D` and `Γ_N`.
+"""
+function _reciprocal_kernel(μ, Ω, Γ_D, Γ_N)
+    x, y = real.(Ω.z), imag.(Ω.z)
+    h = 𝒮(μ[1] .* x + μ[2] .* y, Ω) - (x .* 𝒮(μ[1], Ω) + y .* 𝒮(μ[2], Ω))
+    return _boundary_eval(h, Ω, Γ_D.s), _boundary_eval(h, Ω, Γ_N.s)
+end
+
+"""
+    marangoni_self_operator(Ω, Γ_D, Γ_N)
+
+Operator giving the PSH coefficients of a surfer's own Marangoni flow `∇ℬ[σ]` on its Stokes
+domain, in the body frame.
+
+`psh` approximates the inner products `∫ conj(Y_lm) u dA_ζ / w` by quadrature, which
+converges slowly for the self flow since it is not smooth at ∂Ω. The inner products are
+instead evaluated exactly on the arcs with [`_reciprocal_kernel`](@ref), taking
+`μ = conj(Y_lm) / (w J)`, where `J` is the area Jacobian of the map from the unit disk.
+
+# Arguments
+- `Ω`: Stokes domain.
+- `Γ_D`, `Γ_N`: reference Dirichlet and Neumann arc boundaries, on ∂Ω.
+
+# Returns
+- `(Hx, Hy)`: matrices with `vec(psh(∇ℬ[σ]ᵢ, Ω)) ≈ Hᵢ * [σ_D; σ_N]` on the even modes.
+"""
+function marangoni_self_operator(Ω, Γ_D, Γ_N)
+
+    x, y = real.(Ω.z), imag.(Ω.z)
+    J    = Ω.dz ./ Ω.dζ
+    A    = _boundary_interp(Ω, [Γ_D.s; Γ_N.s]) .* [Γ_D.dΓ; Γ_N.dΓ]
+    modes = findall(vec(Ω.even))
+
+    # Traces of the reciprocal kernel h for μ = (φ, 0) and (0, φ), one column per mode
+    Tx = zeros(ComplexF64, size(A, 2), length(modes))
+    Ty = zeros(ComplexF64, size(A, 2), length(modes))
+    for (j, k) in enumerate(modes)
+        lm = CartesianIndices(Ω.shp)[k]
+        φ  = ylm(Ω.Lspan[lm[1]], -Ω.Mspan[lm[2]], Ω.ζ) ./ (Ω.w .* J)
+        Sφ = 𝒮(φ, Ω)
+        Tx[:, j] = vec(trace(𝒮(φ .* x, Ω) .- x .* Sφ, Ω))
+        Ty[:, j] = vec(trace(𝒮(φ .* y, Ω) .- y .* Sφ, Ω))
+    end
+
+    Hx = zeros(ComplexF64, length(Ω.z), size(A, 1))
+    Hy = zeros(ComplexF64, length(Ω.z), size(A, 1))
+    Hx[modes, :] = transpose(A * Tx)
+    Hy[modes, :] = transpose(A * Ty)
+    return Hx, Hy
+
+end
+
+"""
+    _marangoni_self_flow(self_op, σ_D, σ_N, Ω)
+
+PSH coefficients of a surfer's own Marangoni flow, in the body frame.
+
+# Arguments
+- `self_op`: operator from [`marangoni_self_operator`](@ref).
+- `σ_D`, `σ_N`: layer densities on the surfer's Dirichlet and Neumann arcs.
+- `Ω`: Stokes domain.
+
+# Returns
+- `(b̂x, b̂y)`: coefficient arrays with the shape of `Ω.z`.
+"""
+function _marangoni_self_flow(self_op, σ_D, σ_N, Ω)
+    Hx, Hy = self_op
+    σ = [σ_D; σ_N]
+    return reshape(Hx * σ, size(Ω.z)), reshape(Hy * σ, size(Ω.z))
 end
 
 """
@@ -120,7 +221,7 @@ function surfactant_solve(xcm, θcm, Γ_D::Boundary, Γ_N::Boundary, g)
 end
 
 """
-    marangoni_solve(xcm, θcm, Ω, Γ_D, Γ_N, g; tol=1e-6)
+    marangoni_solve(xcm, θcm, Ω, Γ_D, Γ_N, g; tol=1e-6, self_op=marangoni_self_operator(Ω, Γ_D, Γ_N))
 
 Solve for the translational velocity `U` and angular velocity `ω` of a collection of
 Marangoni surfers via the mobility formulation.
@@ -128,6 +229,10 @@ Marangoni surfers via the mobility formulation.
 `Ω` is the Stokes domain boundary, `Γ_D` and `Γ_N` are the Dirichlet and Neumann arc
 boundaries for the surfactant solve, and `g` is the Dirichlet BC as a function of arc
 parameter `s`.
+
+The Marangoni flow on each particle is split into the flow from the other particles, which
+is smooth there and sampled at the Stokes nodes, and the particle's own flow, which is not
+smooth at its edge and is projected with `self_op`.
 
 # Arguments
 - `xcm`: vector of complex particle centers.
@@ -137,13 +242,16 @@ parameter `s`.
 - `Γ_N::Boundary`: reference Neumann arc boundary.
 - `g`: Dirichlet boundary data, as a function of arc parameter `s`.
 - `tol`: FMM/GMRES accuracy tolerance (default `1e-6`).
+- `self_op`: self-flow operator from [`marangoni_self_operator`](@ref); pass a prebuilt one
+  when solving repeatedly with the same `Ω`, `Γ_D`, `Γ_N`.
 
 # Returns
 - `(U, σ, Γ, ϕ∞, f)`: per-particle rigid-body velocities `U[i] = (ux, uy, ω)`, layer
   densities, placed boundaries, the far-field constant, and the Stokes force densities
   `f[i]` on each particle's domain, in its body frame.
 """
-function marangoni_solve(xcm, θcm, Ω, Γ_D::Boundary, Γ_N::Boundary, g; tol=1e-6)
+function marangoni_solve(xcm, θcm, Ω, Γ_D::Boundary, Γ_N::Boundary, g; tol=1e-6,
+                         self_op=marangoni_self_operator(Ω, Γ_D, Γ_N))
 
     Nparticles = length(xcm)
 
@@ -158,7 +266,18 @@ function marangoni_solve(xcm, θcm, Ω, Γ_D::Boundary, Γ_N::Boundary, g; tol=1
     for i in 1:Nparticles
         ri = offs[i]+1:offs[i+1]
         shp = size(pts[i])
-        uinf[i] = (reshape(copy(bx[ri]), shp), reshape(copy(by[ri]), shp))
+        own = 2i-1:2i
+
+        # Flow from the other particles: remove the particle's own arcs, sampled with the
+        # same quadrature so the near-edge error cancels
+        sx, sy = ∇ℬ(pts[i], σ[own], Γ[own]; eps=tol)
+        cx = reshape(bx[ri], shp) .- sx
+        cy = reshape(by[ri], shp) .- sy
+
+        # Own flow from its exact PSH coefficients, rotated to the world frame
+        ux, uy = real.(ipsh(_marangoni_self_flow(self_op, σ[own]..., Ω), Ω))
+        c, s = cos(θcm[i]), sin(θcm[i])
+        uinf[i] = (cx .+ c .* ux .- s .* uy, cy .+ s .* ux .+ c .* uy)
     end
 
     F = [zeros(3) for _ in 1:Nparticles]
@@ -239,10 +358,7 @@ function marangoni_solve(Ω, Γ_D, Γ_N, g)
     x, y = real.(Ω.z), imag.(Ω.z)
 
     function _marangoni_force(e)
-        μ = 𝒮_st⁻¹(e, Ω)
-        h = 𝒮(μ[1] .* x + μ[2] .* y, Ω) - (x .* 𝒮(μ[1], Ω) + y .* 𝒮(μ[2], Ω))
-        h_D = _boundary_eval(h, Ω, Γ_D.s)
-        h_N = _boundary_eval(h, Ω, Γ_N.s)
+        h_D, h_N = _reciprocal_kernel(𝒮_st⁻¹(e, Ω), Ω, Γ_D, Γ_N)
         return integral(h_D .* σ_D, Γ_D) + integral(h_N .* σ_N, Γ_N)
     end
 
@@ -255,21 +371,25 @@ function marangoni_solve(Ω, Γ_D, Γ_N, g)
 end
 
 """
-    marangoni_multipoles(Ω, Γ_D, Γ_N, g)
+    marangoni_multipoles(Ω, Γ_D, Γ_N, g; self_op=marangoni_self_operator(Ω, Γ_D, Γ_N))
 
 Compute the Marangoni multipole moments for a single surfer.
+
+The force density solves `𝒮_st f = U + ω × r - ∇ℬ[σ]` in PSH coefficient space, with the
+coefficients of the Marangoni flow taken from `self_op`.
 
 # Arguments
 - `Ω`: Stokes domain boundary.
 - `Γ_D`: reference Dirichlet arc boundary.
 - `Γ_N`: reference Neumann arc boundary.
 - `g`: Dirichlet boundary data, as a function of arc parameter `s`.
+- `self_op`: self-flow operator from [`marangoni_self_operator`](@ref).
 
 # Returns
 - `NamedTuple` with fields `velocity`, `force_monopole`, `force_dipole`,
   `surf_monopole`, `surf_dipole`.
 """
-function marangoni_multipoles(Ω, Γ_D, Γ_N, g)
+function marangoni_multipoles(Ω, Γ_D, Γ_N, g; self_op=marangoni_self_operator(Ω, Γ_D, Γ_N))
 
     U, σ, _, _ = marangoni_solve(Ω, Γ_D, Γ_N, g)
 
@@ -279,9 +399,10 @@ function marangoni_multipoles(Ω, Γ_D, Γ_N, g)
     z    = Ω.z
     x, y = real.(z), imag.(z)
 
-    bx = ∇ℬ(z, α_D, Γ_D)[1] .+ ∇ℬ(z, α_N, Γ_N)[1]
-    by = ∇ℬ(z, α_D, Γ_D)[2] .+ ∇ℬ(z, α_N, Γ_N)[2]
-    f  = 𝒮_st⁻¹((ucm[1] .- y*ωcm .- bx, ucm[2] .+ x*ωcm .- by), Ω)
+    b̂x, b̂y = _marangoni_self_flow(self_op, α_D, α_N, Ω)
+    r̂x, r̂y = psh((ucm[1] .- y*ωcm, ucm[2] .+ x*ωcm), Ω)
+    f̂  = solve(Ω.K̂_G, (r̂x .- b̂x, r̂y .- b̂y), Ω, parity=:even)
+    f  = ipsh(f̂, Ω, parity=:even) ./ Ω.w
 
     fm = [real.(sum(f[1] .* Ω.dz)), real.(sum(f[2] .* Ω.dz))]
     fd = [real.(sum(x .* f[1] .* Ω.dz))  real.(sum(x .* f[2] .* Ω.dz));
