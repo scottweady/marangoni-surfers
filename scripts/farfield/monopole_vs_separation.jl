@@ -21,7 +21,7 @@ Ns = 128
 
 Γ_D, Γ_N = surfer_boundary(a, b, s₀, Ns)
 
-separations = range(2.0, 100.0, length=100)[2:end]   # skip d=0 to avoid singularity
+separations = 10 .^ range(log10(3.0), 6.0, length=200)
 
 # -- Sweep: aligned ------------------------------------------------------------
 
@@ -55,7 +55,7 @@ open(outfile, "w") do io
     for (i, d) in enumerate(separations)
         I1_0,   I2_0   = integrals_0[i]
         I1_pi2, I2_pi2 = integrals_pi2[i]
-        @printf(io, "%.6f  %.10f  %.10f  %.10f  %.10f\n",
+        @printf(io, "%.10e  %.10e  %.10e  %.10e  %.10e\n",
                 d, I1_0, I2_0, I1_pi2, I2_pi2)
     end
 end

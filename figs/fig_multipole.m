@@ -116,19 +116,20 @@ I1_th0   = data(:,2);
 I1_thpi2 = data(:,4);
 d_fine   = linspace(d(1), d(end), 300)';
 
-fit0 = 1./(d_fine.*log(d_fine));
-fit0 = fit0 * abs(I1_th0(end)/fit0(end));
 sp3 = axes(fig);
 hold(sp3, 'on'); box(sp3, 'on');
 
-plot(sp3, d, abs(I1_th0),   'Color', P.c1, 'DisplayName', '{\it \theta} = 0');
-plot(sp3, d, abs(I1_thpi2), 'Color', P.c2, 'DisplayName', '{\it \theta} = {\it \pi}/2');
-plot(sp3, d_fine, fit0, '--', 'Color', [0.6 0.2 0.2], 'DisplayName', '\propto 1/({\it{r}} log{\it r})')
+plot(sp3, d, abs(I1_th0) .* d .* log(d), 'Color', P.c1, 'DisplayName', '{\it{r}}log{\it{r}} {\it{m}}_{0,1}');
+plot(sp3, d, abs(I1_th0) .* d, 'Color', P.c2, 'DisplayName', '{\it{r}} {\it{m}}_{0,1}');
+plot(sp3, d, pi/2 * ones(size(d)), 'k--', 'HandleVisibility', 'off');
+% plot(sp3, d, abs(I1_thpi2)./(d .* log(d)), 'Color', P.c2, 'DisplayName', '{\it \theta} = {\it \pi}/2');
+% plot(sp3, d_fine, fit0, '--', 'Color', [0.6 0.2 0.2], 'DisplayName', '\propto 1/({\it{r}} log{\it r})')
 xlabel(sp3, 'separation, {\it r}');
-ylabel(sp3, ['{\it{m}}_{0,1}']);
+ylabel(sp3, 'monopole');
 legend(sp3, 'Location', 'northeast', 'Color', 'none', 'FontSize', sp3.FontSize);
-xlim(sp3, [0 100]);
-ylim(sp3, [-0.02 0.2]);
+xlim(sp3, [d(1) d(end)]);
+set(sp3, 'XScale', 'log', 'YScale', 'log')
+ylim(sp3, [0.1 10]);
 
 % ── Layout ────────────────────────────────────────────────────────────────────
 
