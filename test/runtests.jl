@@ -57,6 +57,7 @@ end
     # Open-arc solvers
     include("test_segment.jl")
     include("test_openarc.jl")
+    include("test_phiarc.jl")
     include("test_close_eval.jl")
 
     # Mixed boundary condition solvers

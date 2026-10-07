@@ -2,8 +2,8 @@
 """
     _place(Γ, xcm, θcm)
 
-Rigidly translate and rotate a reference `Boundary`, reusing its precomputed quadrature
-and self matrices (`V`, `K′` are frame-invariant under rigid motion).
+Rigidly translate and rotate a reference `Boundary`, reusing its precomputed quadrature,
+self matrices and coupling (`V`, `K′` and `coupling` are frame-invariant under rigid motion).
 
 # Arguments
 - `Γ::Boundary`: reference boundary, centered at the origin.
@@ -15,7 +15,7 @@ and self matrices (`V`, `K′` are frame-invariant under rigid motion).
 """
 function _place(Γ::Boundary, xcm, θcm)
     eθ = exp(1im*θcm)
-    return Boundary(Γ.quad, Γ.t, Γ.s, xcm .+ eθ.*Γ.γ, eθ.*Γ.γt, eθ.*Γ.γtt, Γ.w, Γ.dΓ, Γ.V, Γ.K′)
+    return Boundary(Γ.quad, Γ.t, Γ.s, xcm .+ eθ.*Γ.γ, eθ.*Γ.γt, eθ.*Γ.γtt, Γ.w, Γ.dΓ, Γ.V, Γ.K′, Γ.coupling)
 end
 
 """
@@ -29,10 +29,10 @@ endpoint density weighting of the open-arc quadratures.
 
 # Returns
 - Diagonal operator (`Diagonal` or `UniformScaling`-backed matrix) of size `length(Γ)`:
-  `1/(2√(1-t²))` for `:open_weight`, `1/2` otherwise.
+  `1/(2√(1-t²))` for `:weighted`, `1/2` otherwise.
 """
 function _jump_term(Γ::Boundary)
-    if Γ.quad == :open_weight
+    if Γ.quad == :weighted
         return Diagonal(-1 ./ (2 .* sqrt.(1 .- Γ.t.^2)))
     else
         return -0.5 * I(length(Γ))
@@ -40,7 +40,7 @@ function _jump_term(Γ::Boundary)
 end
 
 """
-    laplace_solve(Γ, bc, g; decay=true)
+    laplace_solve(Γ, bc, g; decay=true, partner=nothing)
 
 Assemble and solve the mixed Dirichlet/Neumann Laplace BIM system for a collection of
 boundaries.
@@ -55,11 +55,14 @@ An extra unknown `ϕ∞` (the far-field constant) is appended and fixed by enfor
 - `g::Vector`: boundary data per boundary, matching the length of each `Γ[i]`.
 - `decay`: if `true` (default), enforce the far-field decay constraint and solve for
   `ϕ∞`; if `false`, drop the constraint and solve the unaugmented system with `ϕ∞ = 0`.
+- `partner`: optional vector giving, for each boundary, the index of the arc it meets at a
+  junction (default `nothing`). For such a pair the block uses `Γ[i].coupling`, when set,
+  in place of plain quadrature.
 
 # Returns
 - `(σ, ϕ∞)`: `σ[i]` is the layer density on boundary `i`; `ϕ∞` is the far-field constant.
 """
-function laplace_solve(Γ::Vector{Boundary}, bc::Vector{Symbol}, g::Vector; decay=true)
+function laplace_solve(Γ::Vector{Boundary}, bc::Vector{Symbol}, g::Vector; decay=true, partner=nothing)
 
     Nparticles = length(Γ)
     offs  = [0; cumsum(length.(Γ))]
@@ -75,6 +78,8 @@ function laplace_solve(Γ::Vector{Boundary}, bc::Vector{Symbol}, g::Vector; deca
             cj = offs[j]+1 : offs[j+1]
             if i == j
                 A[ri, cj] = bc[i] == :D ? Γ[i].V : Matrix(_jump_term(Γ[i])) + Γ[i].K′
+            elseif partner !== nothing && partner[i] == j && Γ[i].coupling !== nothing
+                A[ri, cj] = Γ[i].coupling
             else
                 A[ri, cj] = bc[i] == :D ? _laplace2d_single_layer_cross(Γ[j], Γ[i]) : _laplace2d_double_layer_adjoint(Γ[j], Γ[i])
             end

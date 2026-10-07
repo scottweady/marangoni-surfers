@@ -226,7 +226,7 @@ function _cheb_matrix(M)
 end
 
 """
-    _single_layer_eig_open_weight(M)
+    _single_layer_eig_weighted(M)
 
 Eigenvalues of the Laplace single-layer operator restricted to the first `M` Chebyshev modes.
 
@@ -239,7 +239,7 @@ maps to `1/(2(m-1))`.
 # Returns
 - `Diagonal` matrix of eigenvalues.
 """
-function _single_layer_eig_open_weight(M)
+function _single_layer_eig_weighted(M)
     return Diagonal([m == 1 ? log(2)/2 : 1/(2*(m-1)) for m in 1:M])
 end
 
@@ -287,6 +287,114 @@ function _log_moments(x, M)
         A  = (T[k+2] / (k + 1) - T[k] / (k - 1)) / 2 - (-1)^k / (k^2 - 1)
         A1 = -(1 + (-1)^k) / (k^2 - 1)
         m[k+1] = A1 * l1 - A * L - (D[k+2] / (k + 1) - D[k] / (k - 1)) / 2
+    end
+
+    return m
+
+end
+
+const _GL20 = gausslegendre(20)
+
+"""
+    _log_moments_ext(z, M)
+
+Moments `mₖ(z) = ∫₋₁¹ log|z - t| Tₖ(t) dt` for `z` off the open interval `(-1, 1)`, real or
+complex.
+
+The closed form of [`_log_moments`](@ref) cancels catastrophically here, since `Tₖ(z)` grows
+geometrically. Instead, with `t = cos θ` and `r = z - √(z² - 1)` (`|r| < 1`),
+
+    log|z - cos θ| = -Re log(2r) - 2 Σₙ Re(rⁿ) cos(nθ)/n,
+
+and each term integrates against `cos(kθ) sin θ` in closed form via
+`F(j) = ∫₀^π cos(jθ) sin θ dθ = (1 + (-1)ʲ)/(1 - j²)`. The series converges like `|r|ⁿ`.
+When `z` is so close to an endpoint that it needs many more than `M` terms, the moments are
+computed by [`_log_moments_quad`](@ref) instead.
+
+# Arguments
+- `z`: real point with `|z| ≥ 1`, or complex point.
+- `M`: number of moments.
+
+# Returns
+- Vector `[m₀(z), …, m_{M-1}(z)]`.
+"""
+function _log_moments_ext(z, M)
+
+    zc = complex(float(z))
+    r₀ = zc - sqrt(zc - 1) * sqrt(zc + 1)
+    r = abs(r₀) > 1 ? 1 / r₀ : r₀
+    nmax = abs(r) < 1e-300 ? 1 : ceil(Int, log(1e-17) / log(abs(r)))
+    nmax > 4M && return _log_moments_quad(z, M)
+
+    F(j) = isodd(j) ? 0.0 : 2 / (1 - j^2)
+    c = [real(r^n) / n for n in 1:nmax]
+    l0 = -real(log(2r))
+    m = zeros(M)
+    for k in 0:M-1
+        acc = l0 * F(k)
+        for n in 1:nmax
+            isodd(n + k) && continue
+            acc -= c[n] * (F(n + k) + F(n - k))
+        end
+        m[k+1] = acc
+    end
+
+    return m
+
+end
+
+"""
+    _log_moments_quad(z, M)
+
+Moments `mₖ(z) = ∫₋₁¹ log|z - t| Tₖ(t) dt` for `z` off the open interval `(-1, 1)`, by
+quadrature, for `z` very close to an endpoint.
+
+The moments are computed as `∫₀^π log|cos θ - z| cos(kθ) sin θ dθ` by composite
+Gauss-Legendre quadrature, on panels graded geometrically in `θ` toward the nearer endpoint,
+down to the angular distance `√(2|z ∓ 1|)`. Panel widths are also capped so that `cos(kθ)`
+is resolved for every `k < M`.
+
+# Arguments
+- `z`: real point with `|z| ≥ 1`, or complex point.
+- `M`: number of moments.
+
+# Returns
+- Vector `[m₀(z), …, m_{M-1}(z)]`.
+"""
+function _log_moments_quad(z, M)
+
+    near_one = real(z) >= 0
+    δ = sqrt(2 * max(abs(z - (near_one ? 1 : -1)), floatmin(Float64)))
+    hmax = 10 / max(M, 1)
+
+    # breakpoints in the angle measured from the near endpoint
+    r = [0.0]
+    h = δ / 4
+    while h < π
+        push!(r, h)
+        h *= 2
+    end
+    push!(r, π)
+    brk = Float64[0.0]
+    for (p, q) in zip(r[1:end-1], r[2:end])
+        n = max(1, ceil(Int, (q - p) / hmax))
+        append!(brk, p .+ (q - p) .* (1:n) ./ n)
+    end
+
+    x, wq = _GL20
+    m = zeros(M)
+    for (p, q) in zip(brk[1:end-1], brk[2:end])
+        ϑ = (q - p)/2 .* x .+ (p + q)/2
+        θ = near_one ? ϑ : π .- ϑ
+        t = cos.(θ)
+        L = log.(abs.(t .- z)) .* sin.(θ) .* ((q - p)/2 .* wq)
+        Tprev, Tcur = ones(length(t)), t
+        m[1] += sum(L)
+        M >= 2 && (m[2] += sum(L .* t))
+        for k in 2:M-1
+            Tprev, Tcur = Tcur, 2 .* t .* Tcur .- Tprev
+            m[k+1] += sum(L .* Tcur)
+        end
     end
 
     return m

@@ -4,7 +4,7 @@
 # O(1) error that does not converge.
 #
 # Convergence is algebraic rather than spectral, for two reasons. The exact layer density
-# is smooth across the junctions, while the `:open_weight` quadrature on Γ_D assumes a
+# is smooth across the junctions, while the `:weighted` quadrature on Γ_D assumes a
 # 1/√(1-t²) edge singularity. And the cross blocks between the arcs use plain quadrature,
 # which is near-singular where the arcs meet.
 
@@ -24,7 +24,7 @@
 
     errs = map(Nspan) do N
         Γ_D = openarc(γ, γs, γss, N; dom=[π/2, 3π/2])
-        Γ_N = openarc(γ, γs, γss, N; dom=[-π/2, π/2], quad=:open)
+        Γ_N = openarc(γ, γs, γss, N; dom=[-π/2, π/2], quad=:smooth)
         n̂   = (imag.(Γ_N.γt) .- im .* real.(Γ_N.γt)) ./ abs.(Γ_N.γt)
         σ, ϕ∞ = laplace_solve([Γ_D, Γ_N], [:D, :N], [real.(f.(Γ_D.γ)), real.(fp.(Γ_N.γ) .* n̂)])
         u_num = [ϕ∞ + real(𝒱(ζ, σ[1], Γ_D) + 𝒱(ζ, σ[2], Γ_N)) for ζ in ζ_pts]

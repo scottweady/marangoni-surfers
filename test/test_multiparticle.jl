@@ -6,6 +6,9 @@
 # 2. One particle placed at (xcm, θcm): U should be the origin result with its translational
 #    part rotated by θcm, to within the FMM/GMRES tolerance.
 # 3. Two particles: convergence in `M` against a reference at `M_ref`.
+# 4. Two circular surfers: φ-arcs (the default) against the mixed arcs, which are
+#    independent of the φ-arc operators and accurate for circles at high resolution. This
+#    checks the particle-to-particle blocks, which use the arcs' tangents and normals.
 
 @testset "Multi-particle solve" begin
     section("Multi-particle solve, refining body resolution M")
@@ -58,4 +61,22 @@
 
     subsection("two particles, against high-M reference")
     check_errors(Mspan_pair, err_pair; label="M")
+end
+
+@testset "Multi-particle solve: φ-arcs against mixed arcs" begin
+    section("Multi-particle solve: φ-arcs against mixed arcs, refining boundary resolution N")
+    s₀ = π/2
+    g(s) = -cos(s)
+    M = 16
+    tol = 1e-10
+    Nspan = sweep(24:12:72, [48])
+    Ns_mixed = 256
+
+    xcm, θcm = [0.0im, 2.5 + 1.0im], [0.3, 2.0]
+    Ω = ellipse(1.0, 1.0, M)
+    pair_velocity(Γ_D, Γ_N) = vcat(first(marangoni_solve(xcm, θcm, Ω, Γ_D, Γ_N, g; tol=tol))...)
+
+    U_mixed = pair_velocity(surfer_boundary(1.0, 1.0, s₀, Ns_mixed; quad=:mixed)...)
+    errs = [norm(pair_velocity(surfer_boundary(1.0, 1.0, s₀, Ns)...) .- U_mixed, Inf) for Ns in Nspan]
+    check_errors(Nspan, errs)
 end

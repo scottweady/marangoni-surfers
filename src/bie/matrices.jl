@@ -31,7 +31,7 @@ function _laplace2d_single_layer_cross(Γ_src::Boundary, Γ_tgt::Boundary)
 end
 
 """
-    _laplace2d_single_layer_open(t, γ, γt, w)
+    _laplace2d_single_layer_smooth(t, γ, γt, w)
 
 Single-layer matrix for the Laplace log-kernel on a smooth open arc with Fejér nodes, by
 product integration.
@@ -49,7 +49,7 @@ exactly to the Chebyshev interpolant of the integrand, using the moments from
 # Returns
 - `A::Matrix{Float64}` (`N × N`) self single-layer matrix.
 """
-function _laplace2d_single_layer_open(t, γ, γt, w)
+function _laplace2d_single_layer_smooth(t, γ, γt, w)
 
     N = length(t)
 
@@ -98,13 +98,13 @@ function _laplace2d_single_layer_closed(t, γ, γt)
 end
 
 """
-    _laplace2d_single_layer_open_weight(t, γ, γt, w)
+    _laplace2d_single_layer_weighted(t, γ, γt, w)
 
 Single-layer matrix for the Laplace log-kernel on an open arc with `1/√(1-t²)`-weighted
 Gauss-Chebyshev nodes, via Bruno (2021) log-splitting.
 
 The smooth remainder after subtracting the `log|t-t′|` singularity is applied exactly
-in the Chebyshev basis using [`_cheb_matrix`](@ref) and [`_single_layer_eig_open_weight`](@ref).
+in the Chebyshev basis using [`_cheb_matrix`](@ref) and [`_single_layer_eig_weighted`](@ref).
 
 # Arguments
 - `t`: `N` Gauss-Chebyshev nodes.
@@ -114,7 +114,7 @@ in the Chebyshev basis using [`_cheb_matrix`](@ref) and [`_single_layer_eig_open
 # Returns
 - `A::Matrix{Float64}` (`N × N`) self single-layer matrix.
 """
-function _laplace2d_single_layer_open_weight(t, γ, γt, w)
+function _laplace2d_single_layer_weighted(t, γ, γt, w)
 
     M = length(t)
 
@@ -123,7 +123,7 @@ function _laplace2d_single_layer_open_weight(t, γ, γt, w)
     A = -(1/(2π)) * log.(abs.(arg)) .* transpose(abs.(γt) .* w)
 
     T, T′ = _cheb_matrix(M)
-    Λ = _single_layer_eig_open_weight(M)
+    Λ = _single_layer_eig_weighted(M)
     A .+= (T * Λ * T′) .* transpose(abs.(γt))
 
     return A
@@ -365,5 +365,149 @@ function _laplace2d_hypersingular(t, γ, γt, γtt)
     Dt = _periodic_diff_matrix(N)
     Ds = Diagonal(1.0 ./ abs.(γt)) * Dt
     return -Diagonal(1.0 ./ dΓ) * Ds' * Diagonal(dΓ) * S * Ds
+
+end
+
+# -- Elliptical arcs parametrized by φ ------------------------------------------
+#
+# An arc s ∈ [sa, sb] of the ellipse γ(s) = a cos s + i b sin s is parametrized by
+# s = sa + J(cos φ + 1), J = (sb - sa)/2, φ = π(1 - ψ)/2, with Fejér nodes in ψ. Densities
+# with half-integer powers of the distance to the arc ends are smooth in φ.
+
+_ellipse_speed(a, b, s) = abs(-a * sin(s) + im * b * cos(s))
+
+# log|γ(s) - γ(s′)| from Δs = s - s′ (computed accurately by the caller) and m = (s + s′)/2,
+# using γ(s) - γ(s′) = 2 sin(Δs/2) (-a sin m + i b cos m)
+_ellipse_logdist(a, b, Δs, m) = log(2 * abs(sin(Δs / 2))) + log(abs(-a * sin(m) + im * b * cos(m)))
+
+"""
+    _laplace2d_single_layer_phi(a, b, sa, sb, ψ, w)
+
+Self single-layer matrix on a φ-parametrized elliptical arc, acting on the physical density.
+
+With `t = cos φ`, `log|cos φ - cos φ′|` has logarithmic singularities at `φ′ = φ`, `-φ` and
+`2π - φ`, i.e. at `ψ′ = ψ`, `2 - ψ` and `-2 - ψ`. These are integrated exactly against the
+Chebyshev interpolant of the integrand `σ |γ_ψ|`, using [`_log_moments`](@ref) for the
+interior point and [`_log_moments_ext`](@ref) for the two images. The smooth remainder is
+integrated with the Fejér weights.
+
+# Arguments
+- `a`, `b`: semi-axes of the ellipse.
+- `sa`, `sb`: parameter interval of the arc.
+- `ψ`, `w`: Fejér nodes and weights.
+
+# Returns
+- `A::Matrix{Float64}` (`N × N`) self single-layer matrix.
+"""
+function _laplace2d_single_layer_phi(a, b, sa, sb, ψ, w)
+
+    N = length(ψ)
+    J = (sb - sa) / 2
+    φ = π .* (1 .- ψ) ./ 2
+    s = sa .+ J .* (cos.(φ) .+ 1)
+    γψ = _ellipse_speed.(a, b, s) .* J .* sin.(φ) .* (π / 2)    # |dγ/dψ|
+    _, T′ = _cheb_matrix(N)
+
+    A = zeros(N, N)
+    Mom = zeros(N, N)
+    for i in 1:N
+        x1, x2 = -2 - ψ[i], 2 - ψ[i]
+        Mom[i, :] = _log_moments(ψ[i], N) .+ _log_moments_ext(x1, N) .+ _log_moments_ext(x2, N)
+        for j in 1:N
+            images = log(abs(ψ[j] - x1)) + log(abs(ψ[j] - x2))
+            if i == j
+                R = log(γψ[i]) - images
+            else
+                Δs = -2J * sin((φ[i] + φ[j]) / 2) * sin((φ[i] - φ[j]) / 2)
+                R = _ellipse_logdist(a, b, Δs, (s[i] + s[j]) / 2) - log(abs(ψ[j] - ψ[i])) - images
+            end
+            A[i, j] = R * w[j]
+        end
+    end
+    A .+= Mom * T′
+
+    return -(1/(2π)) .* A .* transpose(γψ)
+
+end
+
+"""
+    _laplace2d_single_layer_phi_cross(a, b, sa, sb, ψ, w, s_tgt)
+
+Single layer of a φ-parametrized elliptical arc, acting on its physical density, at
+targets elsewhere on the same ellipse.
+
+For a target with arc coordinate `c = cos φ*` outside `[-1, 1]`, `log|c - cos φ′|` is
+singular at the complex conjugate points `ψ′ = 1 - 2φ*/π` and its conjugate, which lie close
+to the arc end when the target is near it. These are integrated exactly against the
+Chebyshev interpolant using [`_log_moments_ext`](@ref); the remainder uses Fejér weights.
+
+# Arguments
+- `a`, `b`: semi-axes of the ellipse.
+- `sa`, `sb`: parameter interval of the source arc.
+- `ψ`, `w`: Fejér nodes and weights of the source arc.
+- `s_tgt`: ellipse parameters of the targets, off the source arc.
+
+# Returns
+- `A::Matrix{Float64}` (`N_tgt × N`).
+"""
+function _laplace2d_single_layer_phi_cross(a, b, sa, sb, ψ, w, s_tgt)
+
+    N = length(ψ)
+    J = (sb - sa) / 2
+    φ = π .* (1 .- ψ) ./ 2
+    s = sa .+ J .* (cos.(φ) .+ 1)
+    γψ = _ellipse_speed.(a, b, s) .* J .* sin.(φ) .* (π / 2)
+    _, T′ = _cheb_matrix(N)
+
+    A = zeros(length(s_tgt), N)
+    Mom = zeros(length(s_tgt), N)
+    for (i, sx) in enumerate(s_tgt)
+        # branch of the target parameter adjacent to the arc, split at the opposite midpoint
+        while sx > sa + J + π;  sx -= 2π; end
+        while sx <= sa + J - π; sx += 2π; end
+        c = (sx - sa) / J - 1
+        z = 1 - 2 * acos(complex(c)) / π
+        Mom[i, :] = _log_moments_ext(z, N) .+ _log_moments_ext(conj(z), N)
+        for j in 1:N
+            # c - cos φ′, written without cancellation near the arc ends
+            cm = c > 0 ? (c - 1) + 2sin(φ[j] / 2)^2 : (c + 1) - 2cos(φ[j] / 2)^2
+            R = _ellipse_logdist(a, b, J * cm, (sx + s[j]) / 2) - log(abs(ψ[j] - z)) - log(abs(ψ[j] - conj(z)))
+            A[i, j] = R * w[j]
+        end
+    end
+    A .+= Mom * T′
+
+    return -(1/(2π)) .* A .* transpose(γψ)
+
+end
+
+"""
+    _laplace2d_double_layer_adjoint_phi(a, b, sa, sb, ψ, w, s_tgt)
+
+Adjoint double-layer (`K′`) operator of a φ-parametrized elliptical arc, acting on its
+physical density, at targets on the same ellipse (on or off the arc).
+
+On the ellipse the kernel is `-ab / (4π |γ′(s_t)| (a² sin² m + b² cos² m))` with
+`m = (s_t + s)/2`, which is smooth, includes the curvature limit at `s = s_t`, and avoids
+cancellation for nearby points. It is integrated with the Fejér weights.
+
+# Arguments
+- `a`, `b`: semi-axes of the ellipse.
+- `sa`, `sb`: parameter interval of the source arc.
+- `ψ`, `w`: Fejér nodes and weights of the source arc.
+- `s_tgt`: ellipse parameters of the targets.
+
+# Returns
+- `A::Matrix{Float64}` (`N_tgt × N`).
+"""
+function _laplace2d_double_layer_adjoint_phi(a, b, sa, sb, ψ, w, s_tgt)
+
+    J = (sb - sa) / 2
+    φ = π .* (1 .- ψ) ./ 2
+    s = sa .+ J .* (cos.(φ) .+ 1)
+    dΓ = _ellipse_speed.(a, b, s) .* J .* sin.(φ) .* (π / 2) .* w
+
+    kernel(st, sj) = (m = (st + sj) / 2; -a * b / (4π * _ellipse_speed(a, b, st) * (a^2 * sin(m)^2 + b^2 * cos(m)^2)))
+    return [kernel(st, s[j]) * dΓ[j] for st in s_tgt, j in eachindex(s)]
 
 end

@@ -1,35 +1,50 @@
 
 """
-    surfer_boundary(a, b, s₀, Ns)
+    surfer_boundary(a, b, s₀, Ns; quad=:phi)
 
 Dirichlet and Neumann arcs of an elliptical surfer in the body frame.
 
 The ellipse `γ(s) = a cos s + i b sin s` is split into the Neumann arc `s ∈ [-s₀, s₀]` and
-the Dirichlet arc `s ∈ [s₀, 2π - s₀]`. The Dirichlet arc uses `:open_weight` quadrature
-and the Neumann arc uses `:open`.
+the Dirichlet arc `s ∈ [s₀, 2π - s₀]`.
+
+With `quad = :phi` (default) both arcs are [`ellipse_arc`](@ref)s, on which the density
+near the Dirichlet-Neumann junctions (`u/√(1-t²) + v` on the Dirichlet arc, half-integer
+powers on the Neumann arc) is smooth, and each arc carries its coupling to the other. With
+`quad = :mixed` the Dirichlet arc uses `:weighted` and the Neumann arc `:smooth`, which
+resolves only the leading junction singularity.
 
 # Arguments
 - `a`, `b`: semi-axes along `x` and `y`.
 - `s₀`: half-angle of the Neumann arc, in the ellipse parameter `s`.
 - `Ns`: number of quadrature nodes on each arc.
+- `quad`: arc discretization, `:phi` (default) or `:mixed`.
 
 # Returns
 - `(Γ_D, Γ_N)`: the Dirichlet and Neumann arc `Boundary`s.
 """
-function surfer_boundary(a, b, s₀, Ns)
+function surfer_boundary(a, b, s₀, Ns; quad=:phi)
 
-    γ(s)   =  a * cos(s) + im * b * sin(s)
-    γs(s)  = -a * sin(s) + im * b * cos(s)
-    γss(s) = -a * cos(s) - im * b * sin(s)
-
-    Γ_D = openarc(γ, γs, γss, Ns; dom=[s₀, 2π - s₀], quad=:open_weight)
-    Γ_N = openarc(γ, γs, γss, Ns; dom=[-s₀, s₀], quad=:open)
-    return Γ_D, Γ_N
+    if quad == :phi
+        Γ_D = ellipse_arc(a, b, s₀, 2π - s₀, Ns)
+        Γ_N = ellipse_arc(a, b, -s₀, s₀, Ns)
+        V_DN = _laplace2d_single_layer_phi_cross(a, b, -s₀, s₀, Γ_N.t, Γ_N.w, Γ_D.s)
+        K_ND = _laplace2d_double_layer_adjoint_phi(a, b, s₀, 2π - s₀, Γ_D.t, Γ_D.w, Γ_N.s)
+        return with_coupling(Γ_D, V_DN), with_coupling(Γ_N, K_ND)
+    elseif quad == :mixed
+        γ(s)   =  a * cos(s) + im * b * sin(s)
+        γs(s)  = -a * sin(s) + im * b * cos(s)
+        γss(s) = -a * cos(s) - im * b * sin(s)
+        Γ_D = openarc(γ, γs, γss, Ns; dom=[s₀, 2π - s₀], quad=:weighted)
+        Γ_N = openarc(γ, γs, γss, Ns; dom=[-s₀, s₀], quad=:smooth)
+        return Γ_D, Γ_N
+    else
+        error("Unknown surfer quadrature: $quad")
+    end
 
 end
 
 """
-    surfer(a, b, s₀, Ns, M)
+    surfer(a, b, s₀, Ns, M; quad=:phi)
 
 Stokes domain and surfactant arcs of an elliptical surfer in the body frame.
 
@@ -38,11 +53,12 @@ Stokes domain and surfactant arcs of an elliptical surfer in the body frame.
 - `s₀`: half-angle of the Neumann arc, in the ellipse parameter `s`.
 - `Ns`: number of quadrature nodes on each arc.
 - `M`: expansion order of the Stokes domain.
+- `quad`: arc discretization, passed to [`surfer_boundary`](@ref) (default `:phi`).
 
 # Returns
 - `(Ω, Γ_D, Γ_N)`: the Stokes domain and the arcs from [`surfer_boundary`](@ref).
 """
-surfer(a, b, s₀, Ns, M) = (ellipse(a, b, M), surfer_boundary(a, b, s₀, Ns)...)
+surfer(a, b, s₀, Ns, M; quad=:phi) = (ellipse(a, b, M), surfer_boundary(a, b, s₀, Ns; quad=quad)...)
 
 """
     integral(f, Ω)
@@ -205,7 +221,8 @@ Solve the surfactant Laplace problem given reference arc boundaries.
 
 `Γ_D` and `Γ_N` are reference (body-frame) Dirichlet and Neumann arc boundaries. They
 are rigidly placed at each `(xcm[k], θcm[k])` — the self-interaction
-matrices `V`, `K′` are reused since the Laplace kernel is translation/rotation invariant.
+matrices `V`, `K′` and the couplings between a particle's own arcs are reused since the
+Laplace kernel is translation/rotation invariant.
 
 # Arguments
 - `xcm`: vector of complex particle centers.
@@ -232,7 +249,9 @@ function surfactant_solve(xcm, θcm, Γ_D::Boundary, Γ_N::Boundary, g)
         push!(rhs, g.(Γ_D_i.s), zeros(length(Γ_N_i.s)))
     end
 
-    σ, ϕinf = laplace_solve(Γ, bc, rhs)
+    # each particle's Dirichlet and Neumann arcs meet at its junctions
+    partner = [isodd(k) ? k + 1 : k - 1 for k in eachindex(Γ)]
+    σ, ϕinf = laplace_solve(Γ, bc, rhs; partner=partner)
     return σ, ϕinf, Γ
 
 end

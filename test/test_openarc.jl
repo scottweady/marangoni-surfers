@@ -1,4 +1,4 @@
-# Dirichlet solve on an open elliptical arc with the `:open` quadrature (smooth density), via
+# Dirichlet solve on an open elliptical arc with the `:smooth` quadrature (smooth density), via
 # the product-integration single layer. The density is prescribed as a smooth function of
 # the arc's reference variable t, the Dirichlet data are its single layer computed by
 # adaptive quadrature, and the potential at an off-arc point is compared with the exact one.
@@ -30,7 +30,7 @@ using QuadGK
     u_ζ = 𝒱_exact(ζ)
 
     errs = map(Nspan) do N
-        Γ = openarc(γ, γs, γss, N; dom=[sa, sb], quad=:open)
+        Γ = openarc(γ, γs, γss, N; dom=[sa, sb], quad=:smooth)
         g = [𝒱_exact(Γ.γ[i], Γ.s[i]) for i in 1:N]
         σ = Γ.V \ g
         abs(𝒱(ζ, σ, Γ) - u_ζ)

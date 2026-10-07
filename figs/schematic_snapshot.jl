@@ -31,7 +31,7 @@ g(s) = -cos(s)
 Ns = 128
 
 γ(s) = a*cos(s) + im*b*sin(s)
-Γ_D, Γ_N = surfer_boundary(a, b, s₀, Ns)
+Γ_D, Γ_N = surfer_boundary(a, b, s₀, Ns; quad=:mixed)   # 𝒱_close needs Gauss-Chebyshev arcs
 
 # -- Random initial configuration (rejection sampling) -------------------------
 
