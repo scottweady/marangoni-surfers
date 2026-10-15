@@ -318,11 +318,24 @@ function random_modes(nmodes::Int; nmin=1, nmax=4, nθmax=2, ε=1e-2, seed=0)
 
 end
 
-function ic_patch(G::SpectralGrid; ρ0=1.0, R=1.0, center=nothing, width=0.25, ζ=1.0)
+# Disk of radius R, or annulus Rin < r < R if Rin > 0, polarized radially outward, with the
+# local orientation rotated by δθ(x, y) and perturbed by plane waves in (x, y, θ) as in
+# ic_polar: ψ → ψ [1 + Σ ε cos(kx x + ky y + nθ θ + φ)]
+function ic_patch(G::SpectralGrid; ρ0=1.0, R=1.0, Rin=0.0, center=nothing, width=0.25, ζ=1.0, modes=(), δθ=(x, y) -> 0.0)
+    budget = sum(mode -> abs(mode.ε), modes; init=0.0)
+    budget < 1 || error("perturbation too large: need Σ|ε| < 1 for ψ ≥ 0 (got $budget)")
+
     xc, yc = something(center, (G.Lx/2, G.Ly/2))
-    ρfun(x, y) = ρ0 * 0.5 * (1 - tanh((hypot(x - xc, y - yc) - R) / width))
-    θfun(x, y) = atan(y - yc, x - xc)
-    return ic_vonmises(G, ρfun, θfun; ζ=ζ)
+    inner(r) = Rin > 0 ? 0.5 * (1 + tanh((r - Rin) / width)) : 1.0
+    ρfun(x, y) = ρ0 * 0.5 * (1 - tanh((hypot(x - xc, y - yc) - R) / width)) * inner(hypot(x - xc, y - yc))
+    θfun(x, y) = atan(y - yc, x - xc) + δθ(x, y)
+    ψ = ic_vonmises(G, ρfun, θfun; ζ=ζ)
+
+    for m in 1:G.Nθ, j in 1:G.Ny, i in 1:G.Nx
+        δ = sum(mode -> mode.ε * cos(2π * mode.nx * G.x[i] / G.Lx + 2π * mode.ny * G.y[j] / G.Ly + mode.nθ * G.θ[m] + mode.phase), modes; init=0.0)
+        ψ[i,j,m] *= 1 + δ
+    end
+    return ψ
 end
 
 # Band of width W localized in x with centerline xc + δ(y), polarized along θ0

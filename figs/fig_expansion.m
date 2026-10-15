@@ -1,14 +1,14 @@
-% fig_expansion.m — render particle configurations from data/frame_XXXXXX.dat
+% fig_expansion.m — render particle configurations from data/patch/frames_1.0/frame_XXXXXX.dat
 
 close all
 
 a = sqrt(1.0);
 b = 1.0 / a;
-U = 0.098175;
+U = single_particle(1.0);
 
 % ── Load frames ───────────────────────────────────────────────────────────────
 
-dataDir = fullfile(dataRoot, 'patch');
+dataDir = fullfile(dataRoot, 'patch/frames_1.0');
 files   = dir(fullfile(dataDir, 'frame_*.dat'));
 files   = sort({files.name});
 Nframes = numel(files);
@@ -60,7 +60,7 @@ Ubar = cellfun(@mean, speeds);
 
 % ── Figure ───────────────────────────────────────────────────────────────────
 
-fig = journal_figure([6.5 2.5], 2, 'tex');
+fig = journal_figure([6.5 2.3], 2, 'tex');
 
 tf = tv(end);
 
@@ -80,7 +80,7 @@ set(sp_R, 'XTickLabel', {});
 sp_V = axes(fig); hold(sp_V, 'on'); box(sp_V, 'on');
 plot(sp_V, tv, Ubar/U, '-', 'Color', line_col);
 xlabel(sp_V, 'time, {\it t}');
-ylabel(sp_V, '\langle |{\it\bf u}_{cm}| \rangle / |{\it\bf u}_{cm,0}|');
+ylabel(sp_V, '\langle{\it u}_{cm,{\it{r}}} \rangle / {\it{U}}');
 xlim(sp_V, [0, tf]);
 ylim(sp_V, [1 1.5]);
 yticks([1 1.25 1.5]);
@@ -148,7 +148,7 @@ h = quiver(sp_C, x0v, y0v, xNv-x0v, yNv-y0v, 0, 'Color', [0.5 0.5 0.5]);
 h.Color = 'k';  h.LineWidth = 1;  h.MaxHeadSize = 0.1;
 
 % Col 3: surfactant concentration snapshot (from expansion_snapshot.jl)
-fid  = fopen(fullfile(dataDir, 'expansion_snapshot.dat'));
+fid  = fopen(fullfile(dataRoot, 'patch', 'expansion_snapshot.dat'));
 hdr  = fgetl(fid);
 Nx   = str2double(regexp(hdr, 'Nx=(\d+)', 'tokens', 'once'));
 Ny   = str2double(regexp(hdr, 'Ny=(\d+)', 'tokens', 'once'));
@@ -182,8 +182,8 @@ text(sp_S, 0.97, 0.03, sprintf('{\\it t} = %.0f', t_S), 'Units', 'normalized', .
 % ── Layout ────────────────────────────────────────────────────────────────────
 
 lm = 0.2;   % left margin
-rm = 0.80;   % right margin (room for colorbar)
-bm = 0.80;   % bottom margin
+rm = 0.3;   % right margin (room for colorbar)
+bm = 0.7;   % bottom margin
 tm = 0.0;   % top margin
 cg = 1.00;   % gap between columns
 vg = 0.2;   % vertical gap between stacked left panels
@@ -200,7 +200,7 @@ halfH    = (height_C - vg) / 2;
 
 col1x = lm;
 col2x = lm +   panelW + cg;
-col3x = lm + 2*panelW + 2*cg;
+col3x = lm + 2*panelW + 1.5 * cg;
 
 for ax = [sp_R, sp_V, sp_C, sp_S]
     ax.Units = 'inches';

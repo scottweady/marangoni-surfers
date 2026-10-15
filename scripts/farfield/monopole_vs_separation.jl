@@ -17,7 +17,7 @@ g(s) = -cos(s)
 
 # -- Geometry ------------------------------------------------------------------
 
-Ns = 128
+Ns = 64
 
 Γ_D, Γ_N = surfer_boundary(a, b, s₀, Ns)
 
@@ -47,7 +47,7 @@ end
 
 # -- Write results -------------------------------------------------------------
 
-outdir = joinpath(@__DIR__, "output")
+outdir = script_param(:outdir, joinpath(@__DIR__, "output"))
 mkpath(outdir)
 outfile = joinpath(outdir, "monopole_vs_separation.dat")
 

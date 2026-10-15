@@ -1,10 +1,10 @@
 % fig_convergence.m — convergence of the single-particle solver against the
 % semi-analytical center-of-mass velocity, assessed independently with respect
-% to the expansion order M and the boundary resolution N, for several particle
+% to the expansion order M and the boundary resolution N_t, for several particle
 % aspect ratios a/b at fixed area (ab = 1).
 %
-% Panel (a): error vs expansion order M, boundary held at N = Ns_ref.
-% Panel (b): error vs boundary resolution N, expansion held at M = M_ref.
+% Panel (a): error vs expansion order M, boundary held at N_t = N_fine.
+% Panel (b): error vs boundary resolution N_t, expansion held at M = M_fine.
 %
 % Requires: scripts/convergence/output/convergence_expansion.dat
 %           scripts/convergence/output/convergence_boundary.dat
@@ -35,21 +35,19 @@ for k = 1:nr
         'MarkerFaceColor', 'w', 'DisplayName', ['{\it a/b} = ' ratio_label(ratios(k))]);
 end
 
-plot(axN, N(4:end), 1e-9 * (N(4:end)/N(end)).^(-3), 'k--')
 xlabel(axM, 'expansion order, {\it M}');
 ylabel(axM, 'error, |{\it u}_{\rm cm}^{\it M} - {\it u}_{\rm cm}^*|');
 style_log_axis(axM, M, errM);
 
-xlim(axM, [0 34])
+xlim(axM, [0 28])
 ylim(axM, [1e-17 1e-3])
 yticks(axM, 10.^(-16:4:0))
 
-xlabel(axN, 'boundary resolution, {\it N}');
-ylabel(axN, 'error, |{\it u}_{\rm cm}^{\it N} - {\it u}_{\rm cm}^*|');
-axN.XScale = 'log';
+xlabel(axN, 'boundary resolution, {\it N_t}');
+ylabel(axN, 'error, |{\it u}_{\rm cm}^{{\it N_t}} - {\it u}_{\rm cm}^*|');
 
 style_log_axis(axN, N, errN);
-xlim(axN, [4/1.5 1.5*1024])
+xlim(axN, [0 110])
 ylim(axN, [1e-17 1])
 yticks(axN, 10.^(-16:4:0))
 
@@ -70,12 +68,6 @@ axN.Position = [ml + panelW + mid, mb, panelW, panelH];
 
 panel_label('\it (a)', axM);
 panel_label('\it (b)', axN);
-
-N3 = annotation('textbox', 'String', '\propto \it{N}^{-3}', 'FontName', 'Times', 'EdgeColor', 'none');
-N3.Units = 'inches';
-N3.Position(1) = axN.Position(1) + 0.6 * axN.Position(3);
-N3.Position(2) = axN.Position(2) + 0.65 * axN.Position(4);
-N3.FontSize = axN.FontSize;
 
 % ── Helpers ───────────────────────────────────────────────────────────────────
 function [n, err, ratios] = load_errors(fname)

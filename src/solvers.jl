@@ -257,6 +257,31 @@ function surfactant_solve(xcm, θcm, Γ_D::Boundary, Γ_N::Boundary, g)
 end
 
 """
+    surfactant_response(Γ_D, Γ_N)
+
+Moments of the response `τ` of an isolated particle to a uniform shift in the ambient
+concentration, which enter the monopole closure of the far-field model.
+
+`τ` solves `V[τ] = 1` on `Γ_D` and `-τ/2 + K′[τ] = 0` on `Γ_N`, with no far-field constant
+and no flux constraint. For a particle oriented along `+x` and symmetric about that axis,
+its moments are `∫ τ dΓ = τ₀` and `∫ x τ dΓ = τ₁`.
+
+# Arguments
+- `Γ_D::Boundary`: reference Dirichlet arc boundary.
+- `Γ_N::Boundary`: reference Neumann arc boundary.
+
+# Returns
+- `(τ₀, τ₁)`: the monopole and dipole moments of `τ`.
+"""
+function surfactant_response(Γ_D::Boundary, Γ_N::Boundary)
+    (τ_D, τ_N), _ = laplace_solve([Γ_D, Γ_N], [:D, :N], [ones(length(Γ_D)), zeros(length(Γ_N))];
+                                  decay=false, partner=[2, 1])
+    τ₀ = integral(τ_D, Γ_D) + integral(τ_N, Γ_N)
+    τ₁ = integral(real.(Γ_D.γ) .* τ_D, Γ_D) + integral(real.(Γ_N.γ) .* τ_N, Γ_N)
+    return τ₀, τ₁
+end
+
+"""
     marangoni_solve(xcm, θcm, Ω, Γ_D, Γ_N, g; tol=1e-6, self_op=marangoni_self_operator(Ω, Γ_D, Γ_N))
 
 Solve for the translational velocity `U` and angular velocity `ω` of a collection of

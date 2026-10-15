@@ -14,38 +14,29 @@ include("../../src/marangoni.jl")
 s₀   = π/2
 g(s) = -cos(s)
 
-aspect_ratios = [10.0]
-Δx_range      = [1.65]
-orient        = :antiparallel   # or :parallel
+aspect_ratios = script_param(:aspect_ratios, [10.0])
+Δx_range      = script_param(:Δx_range, [1.65])
+orient        = script_param(:orient, :antiparallel)   # or :parallel
+show_plots    = script_param(:plot, true)              # display the pair at each step
 
 # -- Discretization ------------------------------------------------------------
 
-Ns = 128   # arc quadrature points
-M  = 32    # Stokes expansion order
+Ns = 64    # arc quadrature points
+M  = 16    # Stokes expansion order
 
-t_max          = 500
+t_max          = script_param(:t_max, 500.0)
 dt_min, dt_max = 1e-3, 1.0
-cfl_scale      = 0.5    # dt ≤ cfl_scale * gap / max speed
+safety         = 0.5    # fraction of the gap that may close in one step
 stop_dist      = 1e-2   # stop when the boundary gap falls below this
 max_separation = Inf    # stop when the center-to-center distance exceeds this
 
-outdir = joinpath(@__DIR__, "output", string(orient))
+outdir = script_param(:outdir, joinpath(@__DIR__, "output", string(orient)))
 mkpath(outdir)
 
 # -- Helpers -------------------------------------------------------------------
 
 "Place body-frame points `z` at center `xc` with orientation `θ`."
 place(z, xc, θ) = exp(im * θ) .* z .+ xc
-
-"Minimum distance between the boundary points `z_body` of the two placed particles."
-function gap(z_body, xcm, θcm)
-    z1 = place(z_body, xcm[1], θcm[1])
-    z2 = place(z_body, xcm[2], θcm[2])
-    return sqrt(minimum(abs2.(z1 .- permutedims(z2))))
-end
-
-"Complex translational and angular velocities from the output of `marangoni_solve`."
-velocities(U) = ([u[1] + im * u[2] for u in U], [u[3] for u in U])
 
 "Append one trajectory row `t x1 y1 θ1 x2 y2 θ2 gap` to `io`."
 function write_row(io, t, xcm, θcm, d)
@@ -77,8 +68,8 @@ for aspect_ratio in aspect_ratios
     γ(s) = a*cos(s) + im*b*sin(s)
     Ω, Γ_D, Γ_N = surfer(a, b, s₀, Ns, M)
     self_op = marangoni_self_operator(Ω, Γ_D, Γ_N)
+    velocity(x, θ) = rigid_velocities(first(marangoni_solve(x, θ, Ω, Γ_D, Γ_N, g; self_op=self_op)))
 
-    z_body    = vcat(Γ_D.γ, Γ_N.γ)
     z_outline = γ.(range(0, 2π; length=201))
     z_arc     = γ.(range(s₀, 2π - s₀; length=101))
 
@@ -93,7 +84,7 @@ for aspect_ratio in aspect_ratios
         io = open(outfile, "w")
 
         t, step = 0.0, 0
-        d = gap(z_body, xcm, θcm)
+        d = min_gap(xcm, θcm, a, b)
         write_row(io, t, xcm, θcm, d)
 
         max_steps = ceil(Int, t_max / dt_max) + 1000
@@ -108,21 +99,21 @@ for aspect_ratio in aspect_ratios
                 break
             end
 
-            U, = marangoni_solve(xcm, θcm, Ω, Γ_D, Γ_N, g; self_op=self_op)
-            v, ω = velocities(U)
-            dt = min(clamp(cfl_scale * d / maximum(abs, v), dt_min, dt_max), t_max - t)
-
-            U_mid, = marangoni_solve(xcm .+ dt/2 .* v, θcm .+ dt/2 .* ω, Ω, Γ_D, Γ_N, g; self_op=self_op)
-            v_mid, ω_mid = velocities(U_mid)
-            xcm .+= dt .* v_mid
-            θcm .+= dt .* ω_mid
+            v, ω = velocity(xcm, θcm)
+            next = midpoint_step(velocity, xcm, θcm, v, ω, a, b; safety=safety, dt_min=dt_min,
+                                 dt_max=dt_max, dt_cap=t_max - t)
+            if next === nothing
+                @printf("  stopped at t = %.4f: no step of at least dt_min keeps the gap\n", t)
+                break
+            end
+            xcm, θcm, dt = next
 
             t += dt
             step += 1
-            d = gap(z_body, xcm, θcm)
+            d = min_gap(xcm, θcm, a, b)
             write_row(io, t, xcm, θcm, d)
 
-            display(plot_pair(xcm, θcm, t, z_outline, z_arc))
+            show_plots && display(plot_pair(xcm, θcm, t, z_outline, z_arc))
             @printf("  t = %10.4f   dt = %.2e   gap = %.2e\n", t, dt, d)
 
         end
@@ -133,4 +124,4 @@ for aspect_ratio in aspect_ratios
     end
 end
 
-readline()
+show_plots && readline()

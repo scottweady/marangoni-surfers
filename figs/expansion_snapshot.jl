@@ -1,4 +1,4 @@
-# Surfactant concentration for a snapshot of the patch-expansion run (data/patch), for
+# Surfactant concentration for a snapshot of the patch-expansion run (data/patch/frames_1.0), for
 # plotting in MATLAB (fig_expansion.m).
 #
 # Output: output/expansion_snapshot.dat
@@ -11,7 +11,7 @@ using DelimitedFiles
 
 include("../src/marangoni.jl")
 
-t_snap = 250.0
+t_snap = script_param(:t_snap, 250.0)
 
 # -- Geometry ------------------------------------------------------------------
 
@@ -22,13 +22,13 @@ b = 1.0 / a
 s₀   = π/2
 g(s) = -cos(s)
 
-Ns = 128
+Ns = 64
 
 Γ_D, Γ_N = surfer_boundary(a, b, s₀, Ns)
 
 # -- Load frame nearest t_snap -------------------------------------------------
 
-datadir = joinpath(@__DIR__, "..", "data", "patch")
+datadir = script_param(:framedir, joinpath(@__DIR__, "..", "data", "patch", "frames_1.0"))
 files   = sort(filter(f -> startswith(f, "frame_") && endswith(f, ".dat"), readdir(datadir)))
 frames  = [readdlm(joinpath(datadir, f)) for f in files]    # columns: t x y θ vx vy ω
 k       = argmin([abs(F[1,1] - t_snap) for F in frames])
@@ -59,7 +59,7 @@ end
 
 # -- Write results -------------------------------------------------------------
 
-outdir = joinpath(@__DIR__, "output")
+outdir = script_param(:outdir, joinpath(@__DIR__, "output"))
 mkpath(outdir)
 outfile = joinpath(outdir, "expansion_snapshot.dat")
 open(outfile, "w") do io

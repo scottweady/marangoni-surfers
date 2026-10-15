@@ -247,17 +247,22 @@ end
     _log_moments(x, M)
 
 Moments `mₖ(x) = ∫₋₁¹ log|x - t| Tₖ(t) dt` of the log kernel against the first `M`
-Chebyshev polynomials, for `|x| < 1`.
+Chebyshev polynomials, by a closed form.
 
-Integrating by parts against an antiderivative `Aₖ` of `Tₖ` with `Aₖ(-1) = 0` gives
+Integrating `Re log(x - t)` by parts against an antiderivative `Aₖ` of `Tₖ` with `Aₖ(-1) = 0` gives
 
-    mₖ(x) = Aₖ(1) log(1 - x) - Aₖ(x) log((1 - x)/(1 + x)) - ∫₋₁¹ (Aₖ(t) - Aₖ(x))/(t - x) dt,
+    mₖ(x) = Aₖ(1) log|1 - x| - Re[Aₖ(x) L(x)] - Re ∫₋₁¹ (Aₖ(t) - Aₖ(x))/(t - x) dt,
 
-and the last integral follows from `Dₙ(x) = ∫₋₁¹ (Tₙ(t) - Tₙ(x))/(t - x) dt`, which satisfies
+with `L(x) = log(x - 1) - log(x + 1)`, and the last integral follows from
+`Dₙ(x) = ∫₋₁¹ (Tₙ(t) - Tₙ(x))/(t - x) dt`, which satisfies
 `D_{n+1} = 2x Dₙ + 2∫₋₁¹ Tₙ dt - D_{n-1}` with `D₀ = 0`, `D₁ = 2`.
 
+The formula holds for any `x`, but off `(-1, 1)` it cancels terms of size `|Tₖ(x)|`, losing a
+factor of about `|r|⁻ᴹ` with `r = x - √(x² - 1)`, `|r| ≤ 1`. It is therefore used only on the
+interval and very near it; see [`_log_moments_ext`](@ref).
+
 # Arguments
-- `x`: target in `(-1, 1)`.
+- `x`: real or complex target.
 - `M`: number of moments.
 
 # Returns
@@ -265,35 +270,34 @@ and the last integral follows from `Dₙ(x) = ∫₋₁¹ (Tₙ(t) - Tₙ(x))/(t
 """
 function _log_moments(x, M)
 
-    L  = log((1 - x) / (1 + x))
-    l1 = log(1 - x)
+    xc = complex(float(x))
+    L  = log(xc - 1) - log(xc + 1)
+    l1 = log(abs(1 - x))
 
     # Tₙ(x) and Dₙ(x) for n = 0..M
-    T = zeros(M + 1)
-    D = zeros(M + 1)
+    T = zeros(typeof(xc), M + 1)
+    D = zeros(typeof(xc), M + 1)
     T[1] = 1.0
-    T[2] = x
+    T[2] = xc
     D[2] = 2.0
     intT(n) = n == 1 ? 0.0 : (1 + (-1)^n) / (1 - n^2)
     for n in 1:M-1
-        T[n+2] = 2x * T[n+1] - T[n]
-        D[n+2] = 2x * D[n+1] + 2 * intT(n) - D[n]
+        T[n+2] = 2xc * T[n+1] - T[n]
+        D[n+2] = 2xc * D[n+1] + 2 * intT(n) - D[n]
     end
 
     m = zeros(M)
-    m[1] = 2l1 - (1 + x) * L - 2
-    M >= 2 && (m[2] = -(x^2 - 1) / 2 * L - x)
+    m[1] = 2l1 - real((1 + xc) * L) - 2
+    M >= 2 && (m[2] = -real((xc^2 - 1) / 2 * L + xc))
     for k in 2:M-1
         A  = (T[k+2] / (k + 1) - T[k] / (k - 1)) / 2 - (-1)^k / (k^2 - 1)
         A1 = -(1 + (-1)^k) / (k^2 - 1)
-        m[k+1] = A1 * l1 - A * L - (D[k+2] / (k + 1) - D[k] / (k - 1)) / 2
+        m[k+1] = A1 * l1 - real(A * L + (D[k+2] / (k + 1) - D[k] / (k - 1)) / 2)
     end
 
     return m
 
 end
-
-const _GL20 = gausslegendre(20)
 
 """
     _log_moments_ext(z, M)
@@ -307,9 +311,10 @@ geometrically. Instead, with `t = cos θ` and `r = z - √(z² - 1)` (`|r| < 1`)
     log|z - cos θ| = -Re log(2r) - 2 Σₙ Re(rⁿ) cos(nθ)/n,
 
 and each term integrates against `cos(kθ) sin θ` in closed form via
-`F(j) = ∫₀^π cos(jθ) sin θ dθ = (1 + (-1)ʲ)/(1 - j²)`. The series converges like `|r|ⁿ`.
-When `z` is so close to an endpoint that it needs many more than `M` terms, the moments are
-computed by [`_log_moments_quad`](@ref) instead.
+`F(j) = ∫₀^π cos(jθ) sin θ dθ = (1 + (-1)ʲ)/(1 - j²)`. The series converges like `|r|ⁿ`,
+so it is slow when `z` is close to an endpoint. That is exactly where the closed form of
+[`_log_moments`](@ref) is accurate, since it loses only a factor of about `|r|⁻ᴹ`, so it is
+used whenever that loss is small.
 
 # Arguments
 - `z`: real point with `|z| ≥ 1`, or complex point.
@@ -323,8 +328,8 @@ function _log_moments_ext(z, M)
     zc = complex(float(z))
     r₀ = zc - sqrt(zc - 1) * sqrt(zc + 1)
     r = abs(r₀) > 1 ? 1 / r₀ : r₀
+    -M * log(abs(r)) < 5 && return _log_moments(z, M)
     nmax = abs(r) < 1e-300 ? 1 : ceil(Int, log(1e-17) / log(abs(r)))
-    nmax > 4M && return _log_moments_quad(z, M)
 
     F(j) = isodd(j) ? 0.0 : 2 / (1 - j^2)
     c = [real(r^n) / n for n in 1:nmax]
@@ -337,64 +342,6 @@ function _log_moments_ext(z, M)
             acc -= c[n] * (F(n + k) + F(n - k))
         end
         m[k+1] = acc
-    end
-
-    return m
-
-end
-
-"""
-    _log_moments_quad(z, M)
-
-Moments `mₖ(z) = ∫₋₁¹ log|z - t| Tₖ(t) dt` for `z` off the open interval `(-1, 1)`, by
-quadrature, for `z` very close to an endpoint.
-
-The moments are computed as `∫₀^π log|cos θ - z| cos(kθ) sin θ dθ` by composite
-Gauss-Legendre quadrature, on panels graded geometrically in `θ` toward the nearer endpoint,
-down to the angular distance `√(2|z ∓ 1|)`. Panel widths are also capped so that `cos(kθ)`
-is resolved for every `k < M`.
-
-# Arguments
-- `z`: real point with `|z| ≥ 1`, or complex point.
-- `M`: number of moments.
-
-# Returns
-- Vector `[m₀(z), …, m_{M-1}(z)]`.
-"""
-function _log_moments_quad(z, M)
-
-    near_one = real(z) >= 0
-    δ = sqrt(2 * max(abs(z - (near_one ? 1 : -1)), floatmin(Float64)))
-    hmax = 10 / max(M, 1)
-
-    # breakpoints in the angle measured from the near endpoint
-    r = [0.0]
-    h = δ / 4
-    while h < π
-        push!(r, h)
-        h *= 2
-    end
-    push!(r, π)
-    brk = Float64[0.0]
-    for (p, q) in zip(r[1:end-1], r[2:end])
-        n = max(1, ceil(Int, (q - p) / hmax))
-        append!(brk, p .+ (q - p) .* (1:n) ./ n)
-    end
-
-    x, wq = _GL20
-    m = zeros(M)
-    for (p, q) in zip(brk[1:end-1], brk[2:end])
-        ϑ = (q - p)/2 .* x .+ (p + q)/2
-        θ = near_one ? ϑ : π .- ϑ
-        t = cos.(θ)
-        L = log.(abs.(t .- z)) .* sin.(θ) .* ((q - p)/2 .* wq)
-        Tprev, Tcur = ones(length(t)), t
-        m[1] += sum(L)
-        M >= 2 && (m[2] += sum(L .* t))
-        for k in 2:M-1
-            Tprev, Tcur = Tcur, 2 .* t .* Tcur .- Tprev
-            m[k+1] += sum(L .* Tcur)
-        end
     end
 
     return m

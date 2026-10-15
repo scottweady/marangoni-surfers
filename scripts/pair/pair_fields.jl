@@ -17,21 +17,21 @@ include("../../src/marangoni.jl")
 s₀   = π/2
 g(s) = -cos(s)
 
-aspect_ratios = [0.25, 1.0, 4.0]
-Δx            = 8.0             # center-to-center separation
-orient        = :parallel       # or :antiparallel
+aspect_ratios = script_param(:aspect_ratios, [0.25, 1.0, 4.0])
+Δx            = 8.0                                # center-to-center separation
+orient        = script_param(:orient, :parallel)   # or :antiparallel
 
 # -- Discretization ------------------------------------------------------------
 
-Ns = 128      # arc quadrature points
-M  = 32       # Stokes expansion order
+Ns = 64       # arc quadrature points
+M  = 16       # Stokes expansion order
 
 # -- Field grid parameters -----------------------------------------------------
 
 pad  = 10.0
 Nplt = 512
 
-outdir = joinpath(@__DIR__, "output", string(orient))
+outdir = script_param(:outdir, joinpath(@__DIR__, "output", string(orient)))
 mkpath(outdir)
 
 # -- Main loop over aspect ratio -----------------------------------------------

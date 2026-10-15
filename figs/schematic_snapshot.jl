@@ -28,7 +28,7 @@ b = 1.0 / a
 s₀   = π/2
 g(s) = -cos(s)
 
-Ns = 128
+Ns = 64
 
 γ(s) = a*cos(s) + im*b*sin(s)
 Γ_D, Γ_N = surfer_boundary(a, b, s₀, Ns; quad=:mixed)   # 𝒱_close needs Gauss-Chebyshev arcs
@@ -99,7 +99,7 @@ sb = (sb[1:end-1] .+ sb[2:end]) ./ 2
 write_row(io, v) = println(io, join([@sprintf("%.10e", x) for x in v], " "))
 write_matrix(io, A) = foreach(i -> write_row(io, A[i, :]), axes(A, 1))
 
-outdir = joinpath(@__DIR__, "output")
+outdir = script_param(:outdir, joinpath(@__DIR__, "output"))
 mkpath(outdir)
 outfile = joinpath(outdir, "schematic_snapshot.dat")
 open(outfile, "w") do io

@@ -15,6 +15,8 @@ using Printf
 using QuadGK
 using SpecialFunctions
 
+include("../../src/script_params.jl")
+
 # -- Parameters ----------------------------------------------------------------
 
 aspect_ratio = 4.0
@@ -136,7 +138,7 @@ end
 
 write_row(io, v) = println(io, join([@sprintf("%.10e", x) for x in v], " "))
 
-outdir = joinpath(@__DIR__, "output")
+outdir = script_param(:outdir, joinpath(@__DIR__, "output"))
 mkpath(outdir)
 outfile = joinpath(outdir, "vonmises_growth_rate.dat")
 open(outfile, "w") do io

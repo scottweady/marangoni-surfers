@@ -8,12 +8,14 @@ include("../../src/marangoni.jl")
 
 # -- Parameters ----------------------------------------------------------------
 
-Ns   = 128
-M    = 32
+Ns   = 64
+M    = 16
 s₀   = π/2
 g(s) = -cos(s)
 
-aspect_ratio = 0.25
+aspect_ratio = script_param(:aspect_ratio, 4.0)
+t_end        = script_param(:t_end, 200.0)
+render       = script_param(:plot, true)   # render, display and save each frame
 a = sqrt(aspect_ratio)
 b = 1.0 / a
 
@@ -21,9 +23,9 @@ b = 1.0 / a
 
 # -- Run -----------------------------------------------------------------------
 
-config = :hedgehog   # :line, :hedgehog, or :ring
+config = script_param(:config, :hedgehog)   # :line, :hedgehog, or :ring
 
-d = 5.0
+d = 8.0
 
 if config == :line
     Nparticles = 13
@@ -31,7 +33,7 @@ if config == :line
     θcm = (π/2) * ones(Nparticles)
 
 elseif config == :hedgehog
-    n_rings = 3
+    n_rings = 5
     xs = ComplexF64[]
     θs  = Float64[]
     for k in 1:n_rings
@@ -65,8 +67,8 @@ elseif config == :ring
 
 end
 
-outdir = joinpath(@__DIR__, "output", "frames_$(round(a/b, digits=4))")
+outdir = script_param(:outdir, joinpath(@__DIR__, "output", "frames_$(round(a/b, digits=4))"))
 isdir(outdir) && rm(outdir; recursive=true)
 traj_xcm, traj_θcm, traj_t = suspension_simulate(xcm, θcm, Ω, Γ_D, Γ_N, g;
-                                                 t_end=200.0, dt_max=5.0, plot_every=5.0,
-                                                 plot_dir=outdir)
+                                                 t_end=t_end, dt_max=1.0, plot_every=5.0,
+                                                 plot_dir=outdir, render=render)

@@ -9,7 +9,7 @@ close all;
 
 P = palette();
 
-ratio = logspace(log10(1/16), log10(16), 25)';
+ratio = logspace(log10(1/128), log10(128), 25)';
 [U, eta, beta] = single_particle(ratio);
 r  = eta ./ (4*pi*U) .* (1 - beta/2);
 rc = 2 ./ sqrt(ratio);
@@ -26,8 +26,8 @@ plot(ax, ratio, rc, ':', 'Color', 'k', 'DisplayName', '2{\it{b}}');
 ax.XScale = 'log';
 % ax.XTick = [0.125 0.25 0.5 1 2 4 8];
 % ax.XTickLabel = {'1/8', '1/4', '1/2', '1', '2', '4', '8'};
-xlim(ax, [1/16 16]);
-ylim(ax, [0 3]);
+% xlim(ax, [1/16 16]);
+ylim(ax, [0 6]);
 
 text(ax, 0.9, 0.9, 'feasible ({\it{d}}^* > 2{\it{b}})', ...
      'Units', 'normalized', 'HorizontalAlignment', 'right', ...
