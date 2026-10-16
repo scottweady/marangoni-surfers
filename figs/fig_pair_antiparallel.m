@@ -73,8 +73,8 @@ cb.Title.String = '{\it{c}}';
 
 
 % ── Separation and orientation vs time ───────────────────────────────────────
-traj_ab = [0.25, 1, 10];
-traj_d  = [5.0, 4.0, 1.6];
+traj_ab = [0.25, 1, 4.0, 16.0];
+traj_d  = [8.0, 8.0, 8.0, 2.0];
 Nt = numel(traj_ab);
 
 cmap = P.cmap(Nt+1);
@@ -93,8 +93,8 @@ for k = 1:Nt
     plot(axSep, t, sep, 'Color', c);
     plot(axOmg, t, ang1 + pi/2, 'Color', c, 'HandleVisibility', 'off');
     [U, eta, beta] = single_particle(traj_ab(k));
-    opts = odeset('RelTol', 1e-12, 'AbsTol', 1e-12);
-    [tf, Y] = ode45(@(~, y) farfield_rhs(y, U, eta, beta), [0 50], A(1, 2:7)', opts);
+    opts = odeset('RelTol', 1e-12, 'AbsTol', 1e-12, 'Events', @contact);
+    [tf, Y] = ode45(@(~, y) farfield_rhs(y, U, eta, beta), [0 200], A(1, 2:7)', opts);
     sep_ff = hypot(Y(:,1) - Y(:,4), Y(:,2) - Y(:,5));
     plot(axSep, tf, sep_ff, '--', 'Color', c);
     plot(axOmg, tf, unwrap(Y(:,3)) + pi/2, '--', 'Color', c, 'HandleVisibility', 'off');
@@ -107,9 +107,9 @@ xlabel(axOmg, 'time, {\it t}');
 ylabel(axSep, '|{\it\bfx}_{cm,1} - {\it\bfx}_{cm,2}|');
 ylabel(axOmg, '{\it\theta}_{cm,1} + \pi/2');
 
-xlim(axSep, [0 50]);
-xlim(axOmg, [0 50]);
-ylim(axOmg, [-1.2 0.4]);
+xlim(axSep, [0 100]);
+xlim(axOmg, [0 100]);
+ylim(axOmg, [-1.5 0.5]);
 
 % ── Layout ────────────────────────────────────────────────────────────────────
 topH = 4.2; botH = 4.8;
@@ -168,6 +168,11 @@ function dy = farfield_rhs(y, U, eta, beta)
         w  = -eta*beta*( -3*(q'*e)*(e'*p)*(e'*pj) + (q'*e)*(pj'*p) + (q'*pj)*(e'*p) )/(4*pi*d^2);
         dy(3*i-2:3*i) = [u; w];
     end
+end
+
+% Terminal event: the far-field pair has collapsed, where the 1/d terms stall ode45.
+function [val, term, dir] = contact(~, y)
+    val = hypot(y(1) - y(4), y(2) - y(5)) - 1e-2;  term = true;  dir = -1;
 end
 
 function a = panel_label(str, ax, xOffset, yOffset)

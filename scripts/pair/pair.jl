@@ -14,9 +14,9 @@ include("../../src/marangoni.jl")
 s₀   = π/2
 g(s) = -cos(s)
 
-aspect_ratios = script_param(:aspect_ratios, [10.0])
-Δx_range      = script_param(:Δx_range, [1.65])
-orient        = script_param(:orient, :antiparallel)   # or :parallel
+aspect_ratios = script_param(:aspect_ratios, [4.0])
+Δx_range      = script_param(:Δx_range, [4.0])
+orient        = script_param(:orient, :parallel)   # or :parallel
 show_plots    = script_param(:plot, true)              # display the pair at each step
 
 # -- Discretization ------------------------------------------------------------
@@ -25,9 +25,9 @@ Ns = 64    # arc quadrature points
 M  = 16    # Stokes expansion order
 
 t_max          = script_param(:t_max, 500.0)
-dt_min, dt_max = 1e-3, 1.0
+dt_min, dt_max = 1e-3, 5.0
 safety         = 0.5    # fraction of the gap that may close in one step
-stop_dist      = 1e-2   # stop when the boundary gap falls below this
+stop_dist      = 1e-3   # stop when the boundary gap falls below this
 max_separation = Inf    # stop when the center-to-center distance exceeds this
 
 outdir = script_param(:outdir, joinpath(@__DIR__, "output", string(orient)))
@@ -58,6 +58,12 @@ function plot_pair(xcm, θcm, t, z_outline, z_arc)
     return plt
 end
 
+"Plot the boundary gap history on a log scale."
+function plot_gap(ts, ds)
+    return plot(ts, ds, legend=false, xlabel="t", ylabel="gap",
+                linecolor=:black, linewidth=1.5)
+end
+
 # -- Main loop: aspect ratio and separation ------------------------------------
 
 for aspect_ratio in aspect_ratios
@@ -86,6 +92,7 @@ for aspect_ratio in aspect_ratios
         t, step = 0.0, 0
         d = min_gap(xcm, θcm, a, b)
         write_row(io, t, xcm, θcm, d)
+        ts, ds = [t], [d]
 
         max_steps = ceil(Int, t_max / dt_max) + 1000
         while t < t_max && step < max_steps
@@ -112,8 +119,11 @@ for aspect_ratio in aspect_ratios
             step += 1
             d = min_gap(xcm, θcm, a, b)
             write_row(io, t, xcm, θcm, d)
+            push!(ts, t)
+            push!(ds, d)
 
-            show_plots && display(plot_pair(xcm, θcm, t, z_outline, z_arc))
+            show_plots && display(plot(plot_pair(xcm, θcm, t, z_outline, z_arc), plot_gap(ts, ds);
+                                       layout=(1, 2), size=(1000, 450)))
             @printf("  t = %10.4f   dt = %.2e   gap = %.2e\n", t, dt, d)
 
         end

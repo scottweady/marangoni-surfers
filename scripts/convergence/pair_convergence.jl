@@ -18,16 +18,16 @@ include("../../src/marangoni.jl")
 s₀   = π/2
 g(s) = -cos(s)
 
-configs    = script_param(:configs, [(0.25, 5.0), (1.0, 4.0), (10.0, 1.65)])
+configs    = script_param(:configs, [(4.0, 1.1)])
 orient     = script_param(:orient, :antiparallel)   # or :parallel
 show_plots = script_param(:plot, true)              # display the convergence plots at the end
 
-N_ref = script_param(:N_ref, 160)
+N_ref = script_param(:N_ref, 128)
 M_ref = script_param(:M_ref, 32)
 tol   = script_param(:tol, 1e-13)
 
-Mspan = script_param(:Mspan, 4:2:28)
-Nspan = script_param(:Nspan, 10:10:140)
+Mspan = script_param(:Mspan, 4:4:24)
+Nspan = script_param(:Nspan, 20:20:100)
 
 # -- Helpers -------------------------------------------------------------------
 

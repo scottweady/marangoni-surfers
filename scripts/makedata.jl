@@ -110,18 +110,18 @@ function pairs()
     pardir = mkpath(joinpath(DATA, "parallel"))
     RESUME || foreach(f -> rm(joinpath(pardir, f)),
                       filter(f -> startswith(f, "a") && occursin("_d", f), readdir(pardir)))
-    t_max = 500.0
+    t_max = 200.0
     for aspect_ratio in (0.25, 0.5, 1.0, 2.0, 4.0)
         run_script("scripts/pair/pair.jl", :orient => :parallel, :plot => false,
-                   :aspect_ratios => [aspect_ratio], :Δx_range => [16.0],
+                   :aspect_ratios => [aspect_ratio], :Δx_range => [8.0],
                    :t_max => t_max, :outdir => pardir;
-                   done=trajectory_done(trajectory_file(pardir, aspect_ratio, 16.0), t_max))
+                   done=trajectory_done(trajectory_file(pardir, aspect_ratio, 8.0), t_max))
     end
 
     # antiparallel trajectories are run per (aspect ratio, separation) pair
     antidir = joinpath(DATA, "antiparallel")
-    t_max = 50.0
-    for (aspect_ratio, Δx) in ((0.25, 5.0), (1.0, 4.0), (10.0, 1.65))
+    t_max = 200.0
+    for (aspect_ratio, Δx) in ((0.25, 8.0), (1.0, 8.0), (4.0, 8.0), (16.0, 2.0))
         run_script("scripts/pair/pair.jl", :orient => :antiparallel, :plot => false,
                    :aspect_ratios => [aspect_ratio], :Δx_range => [Δx],
                    :t_max => t_max, :outdir => antidir;

@@ -22,8 +22,8 @@ show_plots    = script_param(:plot, true)   # display the convergence plots at t
 N_fine = 128
 M_fine = 32
 
-Mspan = 4:1:24
-Nspan = 5:5:100   # boundary resolution sweep
+Mspan = 4 .* (1:10)
+Nspan = 10 .* (1:10)   # boundary resolution sweep
 
 # -- Exact solution ------------------------------------------------------------
 

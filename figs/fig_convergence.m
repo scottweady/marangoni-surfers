@@ -1,110 +1,98 @@
-% fig_convergence.m — convergence of the single-particle solver against the
-% semi-analytical center-of-mass velocity, assessed independently with respect
-% to the expansion order M and the boundary resolution N_t, for several particle
-% aspect ratios a/b at fixed area (ab = 1).
+% fig_convergence.m — convergence of the single-particle and pair solvers.
 %
-% Panel (a): error vs expansion order M, boundary held at N_t = N_fine.
-% Panel (b): error vs boundary resolution N_t, expansion held at M = M_fine.
+% Panel (a): single-particle error against the analytical center-of-mass velocity vs
+%            boundary resolution N_t, for several aspect ratios a/b at fixed area.
+% Panel (b): self-convergence of a close antiparallel pair vs expansion order M, boundary
+%            held fixed; color is the aspect ratio, line style is the edge-to-edge gap.
 %
-% Requires: scripts/convergence/output/convergence_expansion.dat
-%           scripts/convergence/output/convergence_boundary.dat
+% Requires: data/convergence/convergence_boundary.dat   (scripts/convergence/convergence.jl)
+%           data/convergence/pair_gap_expansion.dat     (scripts/convergence/pair_gap_convergence.jl)
 
 close all;
 
 baseDir = fullfile(dataRoot, 'convergence');
 
-[M, errM, ratios] = load_errors(fullfile(baseDir, 'convergence_expansion.dat'));
-[N, errN, ~     ] = load_errors(fullfile(baseDir, 'convergence_boundary.dat'));
+[N, errN, hdrN] = load_errors(fullfile(baseDir, 'convergence_boundary.dat'));
+[M, errM, hdrM] = load_errors(fullfile(baseDir, 'pair_gap_expansion.dat'));
+
+ratios     = hdrN.ratios;
+pairRatios = hdrM.ratios;
+pairGaps   = hdrM.gaps;
+gaps       = unique(pairGaps, 'stable');
+styles     = {'-', '--', ':', '-.'};
 
 % ── Colors ────────────────────────────────────────────────────────────────────
-nr   = numel(ratios);
+nr = numel(ratios);
 P = palette();
 cmap = P.cmap(nr + 2);
 cmap = cmap(2:nr+1, :);
+color_of = @(r) cmap(abs(ratios - r) < 1e-12, :);
 
 % ── Figure ────────────────────────────────────────────────────────────────────
 fig = journal_figure([6.75, 2.25], 2, 'tex');
 
-axM = axes(fig); hold(axM, 'on'); box(axM, 'on');
 axN = axes(fig); hold(axN, 'on'); box(axN, 'on');
+axM = axes(fig); hold(axM, 'on'); box(axM, 'on');
 
 for k = 1:nr
-    plot(axM, M, errM(:,k), '-o', 'Color', cmap(k,:), 'MarkerSize', 4, ...
-        'MarkerFaceColor', 'w', 'DisplayName', ['{\it a/b} = ' ratio_label(ratios(k))]);
     plot(axN, N, errN(:,k), '-o', 'Color', cmap(k,:), 'MarkerSize', 4, ...
         'MarkerFaceColor', 'w', 'DisplayName', ['{\it a/b} = ' ratio_label(ratios(k))]);
 end
 
-xlabel(axM, 'expansion order, {\it M}');
-ylabel(axM, 'error, |{\it u}_{\rm cm}^{\it M} - {\it u}_{\rm cm}^*|');
-style_log_axis(axM, M, errM);
-
-xlim(axM, [0 28])
-ylim(axM, [1e-17 1e-3])
-yticks(axM, 10.^(-16:4:0))
+for j = 1:numel(pairRatios)
+    ls = styles{find(gaps == pairGaps(j), 1)};
+    plot(axM, M, errM(:,j), [ls 'o'], 'Color', color_of(pairRatios(j)), 'MarkerSize', 4, ...
+        'MarkerFaceColor', 'w', 'HandleVisibility', 'off');
+end
+for i = 1:numel(gaps)
+    plot(axM, NaN, NaN, styles{i}, 'Color', 'k', ...
+        'DisplayName', sprintf('{\\it d} = %g', gaps(i)));
+end
 
 xlabel(axN, 'boundary resolution, {\it N_t}');
 ylabel(axN, 'error, |{\it u}_{\rm cm}^{{\it N_t}} - {\it u}_{\rm cm}^*|');
+axN.YScale = 'log';
+xlim(axN, [0 110]); ylim(axN, [1e-16 1]); yticks(axN, 10.^(-16:4:0));
 
-style_log_axis(axN, N, errN);
-xlim(axN, [0 110])
-ylim(axN, [1e-17 1])
-yticks(axN, 10.^(-16:4:0))
+xlabel(axM, 'expansion order, {\it M}');
+ylabel(axM, 'error, |{\it U}^{\it M} - {\it U}^{\rm ref}|_\infty');
+axM.YScale = 'log';
+xlim(axM, [0 max(M) + 5]); ylim(axM, [1e-14 1e-2]); yticks(axM, 10.^(-14:4:-2));
 
-legend(axM, 'Location', 'northeast', 'Color', 'none');
-% legend(axN, 'Location', 'southwest', 'Color', 'none');
+legend(axN, 'Location', 'northeast', 'Color', 'none');
+legend(axM, 'Location', 'southwest', 'Color', 'none');
 
 % ── Layout ────────────────────────────────────────────────────────────────────
 ml = 1.25; mr = 0.25; mb = 0.9; mt = 0.3; mid = 1.5;
 
 fig.Units = 'inches'; figW = fig.Position(3); figH = fig.Position(4);
-axM.Units = 'inches'; axN.Units = 'inches';
+axN.Units = 'inches'; axM.Units = 'inches';
 
 panelW = (figW - ml - mr - mid) / 2;
 panelH = figH - mb - mt;
 
-axM.Position = [ml, mb, panelW, panelH];
-axN.Position = [ml + panelW + mid, mb, panelW, panelH];
+axN.Position = [ml, mb, panelW, panelH];
+axM.Position = [ml + panelW + mid, mb, panelW, panelH];
 
-panel_label('\it (a)', axM);
-panel_label('\it (b)', axN);
+panel_label('\it (a)', axN);
+panel_label('\it (b)', axM);
 
 % ── Helpers ───────────────────────────────────────────────────────────────────
-function [n, err, ratios] = load_errors(fname)
-    fid = fopen(fname);
-    if fid == -1
-        error('Cannot open %s — run scripts/convergence/convergence.jl first.', fname);
-    end
-    ratios = [];
-    nhdr   = 0;
-    while true
-        pos  = ftell(fid);
-        line = fgetl(fid);
-        if ~ischar(line) || isempty(line) || line(1) ~= '#'
-            fseek(fid, pos, 'bof');
-            break
-        end
-        nhdr = nhdr + 1;
-        tok  = regexp(line, '^#\s*aspect ratios a/b:\s*(.*)$', 'tokens', 'once');
-        if ~isempty(tok), ratios = str2num(tok{1}); end %#ok<ST2NM>
-    end
-    fclose(fid);
-
-    A   = readmatrix(fname, 'FileType', 'text', 'NumHeaderLines', nhdr);
+function [n, err, hdr] = load_errors(fname)
+    lines = readlines(fname);
+    lines = lines(startsWith(lines, '#'));
+    hdr.ratios = header_values(lines, 'aspect ratios a/b:');
+    hdr.gaps   = header_values(lines, 'edge gaps:');
+    A   = readmatrix(fname, 'FileType', 'text', 'NumHeaderLines', numel(lines));
     n   = A(:,1);
     err = A(:,2:end);
-    if isempty(ratios), ratios = 1:size(err,2); end
 end
 
-function style_log_axis(ax, n, err)
-    ax.YScale = 'log';
-    xlim(ax, [0, max(n) + min(diff(n))]);
-
-    lo = floor(log10(min(err(err > 0))));
-    ylim(ax, [10^lo, 1]);
-
-    step = 2 * ceil(-lo / 8);   % keep ~4-5 labelled decades
-    ax.YTick = 10 .^ (lo : step : 0);
+function v = header_values(lines, key)
+    tok = regexp(lines, ['^#\s*' key '\s*(.*)$'], 'tokens', 'once');
+    tok = tok(~cellfun(@isempty, tok));
+    v = [];
+    if ~isempty(tok), v = str2num(tok{1}{1}); end %#ok<ST2NM>
 end
 
 function s = ratio_label(r)
