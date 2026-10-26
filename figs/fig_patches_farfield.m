@@ -13,7 +13,7 @@ models  = {'frames', 'farfield'};
 labels  = {'direct', 'far-field'};
 Nc = numel(ab_vals);  Nr = numel(models);
 
-fig = journal_figure([6.75 4.6], 2, 'tex');
+fig = journal_figure([6.75 4.5], 2, 'tex');
 
 % ── Load frames ───────────────────────────────────────────────────────────────
 % Each row is shown at its earliest final time across aspect ratios, the collision time of
@@ -93,8 +93,8 @@ for r = 1:Nr
 
         xlim(ax(r,c), xlims + [-xpad, xpad]); ylim(ax(r,c), ylims + [-ypad, ypad]);
 
-        text(ax(r,c), xlims(1), ylims(2), sprintf('\\it (%s) {\\it a/b} \\rm = %.2f, %s, {\\it t} = %.0f', char('a' + (r-1)*Nc + c - 1), ab_vals(c), labels{r}, t_show(r,c)), ...
-             'HorizontalAlignment', 'left', 'VerticalAlignment', 'top', 'FontSize', ax(r,c).FontSize);
+        text(ax(r,c), 0, 0.92, sprintf('\\it (%s) {\\it a/b} \\rm = %.2f, %s', char('a' + (r-1)*Nc + c - 1), ab_vals(c), labels{r}), ...
+             'Units', 'normalized', 'HorizontalAlignment', 'left', 'VerticalAlignment', 'bottom', 'FontSize', ax(r,c).FontSize);
     end
 end
 
@@ -106,7 +106,7 @@ text(ax(1,1), xlims(1) + sb_len/2, ylims(1) + 0.02*diff(ylims), '25{\it{l}}_*', 
 
 % ── Layout ────────────────────────────────────────────────────────────────────
 figW = fig.PaperSize(1);  figH = fig.PaperSize(2);
-lm = 0.1; rm = 0.1; bm = 0.1; tm = 0.1; cg = 0.2; rg = 0.2;
+lm = 0.1; rm = 0.1; bm = 0.1; tm = 0.2; cg = 0.2; rg = 0.3;
 panelW = (figW - lm - rm - (Nc-1)*cg) / Nc;
 panelH = (figH - bm - tm - (Nr-1)*rg) / Nr;
 set(ax, 'Units', 'inches', 'ActivePositionProperty', 'position');

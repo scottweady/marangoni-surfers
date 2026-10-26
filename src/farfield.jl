@@ -91,12 +91,33 @@ with `rᵢⱼ = xᵢ - xⱼ`, which is solved directly.
 # Returns
 - `(m₀, ηᵢ)`: per-particle monopoles and dipole strengths.
 """
-function farfield_moments(xcm, θcm, η, τ₀, τ₁)
+function farfield_moments(xcm, θcm, η, τ₀, τ₁; cache=nothing)
+    α, = farfield_closure(xcm, θcm, η, τ₀, τ₁; cache=cache)
+    return τ₀ .* α, η .- τ₁ .* α
+end
+
+"""
+    farfield_closure(xcm, θcm, η, τ₀, τ₁; cache=nothing, rtol=1e-12, maxiter=10)
+
+Solve the monopole closure system of [`farfield_moments`](@ref) for the response
+amplitudes `αᵢ` and the shift `c∞′` of the far-field constant relative to an isolated
+particle.
+
+With `cache` a `Ref` holding an LU factorization from an earlier, nearby configuration (or
+`nothing`), the system is solved by iterative refinement with that factorization to relative
+residual `rtol`, and refactored, updating `cache`, if this takes more than `maxiter` steps.
+Since the configuration changes little between evaluations, this avoids an `O(N³)`
+factorization at almost every step.
+
+# Returns
+- `(α, c∞′)`: per-particle amplitudes and the far-field shift.
+"""
+function farfield_closure(xcm, θcm, η, τ₀, τ₁; cache=nothing, rtol=1e-12, maxiter=10)
     N = length(xcm)
     p = cis.(θcm)
     A = zeros(N + 1, N + 1)
     b = zeros(N + 1)
-    for i in 1:N
+    Threads.@threads for i in 1:N
         A[i, i] = 1.0
         A[i, N+1] = 1.0
         A[N+1, i] = 1.0
@@ -109,8 +130,21 @@ function farfield_moments(xcm, θcm, η, τ₀, τ₁)
             b[i]   += η / 2π * rp
         end
     end
-    α = (A \ b)[1:N]
-    return τ₀ .* α, η .- τ₁ .* α
+    cache === nothing && (s = A \ b; return s[1:N], s[N+1])
+
+    # iterative refinement with a factorization from an earlier configuration, refactoring
+    # when it no longer converges
+    if cache[] !== nothing
+        s = cache[] \ b
+        for _ in 1:maxiter
+            r = b - A * s
+            norm(r) <= rtol * norm(b) && return s[1:N], s[N+1]
+            s .+= cache[] \ r
+        end
+    end
+    cache[] = lu(A)
+    s = cache[] \ b
+    return s[1:N], s[N+1]
 end
 
 """
@@ -166,6 +200,46 @@ function farfield_velocities(xcm, θcm, U, η, β, m₀=zeros(length(xcm)), η�
 end
 
 """
+    repulsion_velocities!(u, xcm, A, r₀)
+
+Add to `u` the velocities from a soft pairwise repulsion between particle centers,
+`A (1 - r/r₀)² r̂` for `r < r₀`, with `r = xᵢ - xⱼ`. The pairwise sum is evaluated directly at
+`O(N²)` cost.
+"""
+function repulsion_velocities!(u, xcm, A, r₀)
+    Threads.@threads for i in eachindex(xcm)
+        ui = zero(ComplexF64)
+        for j in eachindex(xcm)
+            j == i && continue
+            r = xcm[i] - xcm[j]
+            d = abs(r)
+            d < r₀ && (ui += A * (1 - d / r₀)^2 * r / d)
+        end
+        u[i] += ui
+    end
+    return u
+end
+
+"""
+    pair_bounds(xcm, u, r_c)
+
+Smallest center-to-center distance over all pairs of particles, and the largest relative
+speed `|uᵢ - uⱼ|` over pairs closer than `r_c`.
+"""
+function pair_bounds(xcm, u, r_c)
+    N = length(xcm)
+    dmin, vmax = fill(Inf, N), zeros(N)
+    Threads.@threads for i in 1:N
+        for j in i+1:N
+            d = abs(xcm[i] - xcm[j])
+            dmin[i] = min(dmin[i], d)
+            d < r_c && (vmax[i] = max(vmax[i], abs(u[i] - u[j])))
+        end
+    end
+    return minimum(dmin), maximum(vmax)
+end
+
+"""
     ellipse_outline(aspect_ratio, n)
 
 Body-frame boundary points of a unit-area ellipse with half-axis `a = √aspect_ratio` along
@@ -204,7 +278,8 @@ end
 """
     farfield_simulate(xcm0, θcm0, aspect_ratio; t_end=100.0, dt_max=0.5, dt_min=1e-4,
                       safety=0.25, save_every=5.0, stop_gap=1e-2, outdir="",
-                      n_outline=64, closure=false, verbose=true)
+                      n_outline=64, closure=false, repulsion=0.0, r_rep=2.0, U_factor=1.0,
+                      verbose=true)
 
 Integrate the far-field model with classical RK4 from the configuration `(xcm0, θcm0)`.
 
@@ -215,9 +290,18 @@ single-particle dipole and no monopole.
 The step is limited so no pair can close more than a fraction `safety` of the current
 minimum gap within a step, using twice the largest particle speed as a bound on the
 closing speed. Integration stops at `t_end` or on contact, when the minimum gap falls
-below `stop_gap`. Configurations are saved every `save_every` time units, and at the final
-time, as `frame_<n>.dat` files in the same format as [`suspension_simulate`](@ref):
-one row `t x y θ ux uy ω` per particle.
+below `stop_gap`.
+
+With `repulsion > 0`, particles are treated as points with the soft repulsion of
+[`repulsion_velocities!`](@ref) and integration does not stop on contact. The gap is then
+the minimum center-to-center distance, and the closing speed is bounded by the largest
+relative speed among pairs closer than `4 r_rep`, while pairs farther apart may close by at
+most half that cutoff, at twice the largest speed relative to the mean. This leaves out the
+collective motion that dominates the particle speeds in a large patch.
+
+Configurations are saved every `save_every` time units, and at the final time, as
+`frame_<n>.dat` files in the same format as [`suspension_simulate`](@ref): one row
+`t x y θ ux uy ω` per particle.
 
 # Arguments
 - `xcm0`: initial complex particle centers.
@@ -231,6 +315,9 @@ one row `t x y θ ux uy ω` per particle.
 - `outdir`: directory for frame files; nothing is written if empty (default `""`).
 - `n_outline`: boundary points per particle used to measure gaps (default `64`).
 - `closure`: use the monopole closure (default `false`).
+- `repulsion`, `r_rep`: strength and range of the soft repulsion (default `0.0`, `2.0`).
+- `U_factor`: factor multiplying the self-propulsion speed, leaving `η` and `β` unchanged
+  (default `1.0`).
 - `verbose`: print progress at each saved frame (default `true`).
 
 # Returns
@@ -240,13 +327,31 @@ one row `t x y θ ux uy ω` per particle.
 function farfield_simulate(xcm0, θcm0, aspect_ratio;
                            t_end=100.0, dt_max=1e-2, dt_min=1e-4, safety=0.25,
                            save_every=5.0, stop_gap=1e-2, outdir="", n_outline=64,
-                           closure=false, verbose=true)
+                           closure=false, repulsion=0.0, r_rep=2.0, U_factor=1.0,
+                           verbose=true)
 
     U, η, β = farfield_constants(aspect_ratio)
+    U *= U_factor
     τ₀, τ₁  = farfield_response(aspect_ratio)
     z_body  = ellipse_outline(aspect_ratio, n_outline)
-    rhs(x, θ) = closure ? farfield_velocities(x, θ, U, η, β, farfield_moments(x, θ, η, τ₀, τ₁)...) :
-                          farfield_velocities(x, θ, U, η, β)
+    point   = repulsion > 0
+    lu_cache = Ref{Any}(nothing)
+    function rhs(x, θ)
+        u, ω = closure ? farfield_velocities(x, θ, U, η, β, farfield_moments(x, θ, η, τ₀, τ₁; cache=lu_cache)...) :
+                         farfield_velocities(x, θ, U, η, β)
+        point && repulsion_velocities!(u, x, repulsion, r_rep)
+        return u, ω
+    end
+    r_c     = 4 * r_rep
+
+    # time step from the gap and the velocities at the start of the step
+    function step_size(x, u, gap)
+        point || return safety * gap / (2 * maximum(abs, u))
+        d, v = pair_bounds(x, u, r_c)
+        return min(safety * d / v, r_c / (4 * maximum(abs, u .- sum(u) / length(u))))
+    end
+    gap_of(x, θ) = point ? first(pair_bounds(x, zeros(ComplexF64, length(x)), 0.0)) :
+                           first(min_gap(x, θ, z_body))
 
     xcm, θcm = ComplexF64.(xcm0), Float64.(θcm0)
     t, frame = 0.0, 0
@@ -266,17 +371,17 @@ function farfield_simulate(xcm0, θcm0, aspect_ratio;
     end
 
     save(t, xcm, θcm)
-    gap, = min_gap(xcm, θcm, z_body)
+    gap = gap_of(xcm, θcm)
     contact = false
 
     while t < t_end - 1e-12
-        if gap < stop_gap
+        if !point && gap < stop_gap
             contact = true
             break
         end
 
         u1, ω1 = rhs(xcm, θcm)
-        dt = clamp(safety * gap / (2 * maximum(abs, u1)), dt_min, dt_max)
+        dt = clamp(step_size(xcm, u1, gap), dt_min, dt_max)
         dt = min(dt, t_end - t, next_save - t)
 
         u2, ω2 = rhs(xcm .+ dt/2 .* u1, θcm .+ dt/2 .* ω1)
@@ -286,8 +391,9 @@ function farfield_simulate(xcm0, θcm0, aspect_ratio;
         θcm .+= dt/6 .* (ω1 .+ 2ω2 .+ 2ω3 .+ ω4)
         t   += dt
 
-        gap, = min_gap(xcm, θcm, z_body)
+        point || (gap = gap_of(xcm, θcm))
         if t >= next_save - 1e-12
+            point && (gap = gap_of(xcm, θcm))
             save(t, xcm, θcm)
             next_save += save_every
             verbose && @printf("t = %8.2f   min gap = %.3e\n", t, gap)

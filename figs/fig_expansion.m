@@ -58,6 +58,19 @@ end
 
 Ubar = cellfun(@mean, speeds);
 
+% Far-field model with the monopole closure, started from the same configuration
+ffDir   = fullfile(dataRoot, 'patch/farfield_1.0');
+ffFiles = dir(fullfile(ffDir, 'frame_*.dat'));
+ffFiles = sort({ffFiles.name});
+tv_ff = zeros(numel(ffFiles), 1);  Rv_ff = tv_ff;  Ubar_ff = tv_ff;
+for k = 1:numel(ffFiles)
+    d  = load(fullfile(ffDir, ffFiles{k}));
+    rx = d(:,2) - mean(d(:,2));  ry = d(:,3) - mean(d(:,3));  r = hypot(rx, ry);
+    tv_ff(k)   = d(1,1);
+    Rv_ff(k)   = max(r);
+    Ubar_ff(k) = mean((d(:,5).*rx + d(:,6).*ry) ./ r);
+end
+
 % ── Figure ───────────────────────────────────────────────────────────────────
 
 fig = journal_figure([6.5 2.3], 2, 'tex');
@@ -70,7 +83,9 @@ line_col  = P.col;
 
 % Col 1a: radius vs time
 sp_R = axes(fig); hold(sp_R, 'on'); box(sp_R, 'on');
-plot(sp_R, tv, Rv/Rv(1), '-', 'Color', line_col);
+plot(sp_R, tv, Rv/Rv(1), '-', 'Color', line_col, 'DisplayName', 'direct');
+plot(sp_R, tv_ff, Rv_ff/Rv_ff(1), '--', 'Color', [0.2 0.2 0.2], 'DisplayName', 'far-field');
+legend(sp_R, 'Location', 'southeast', 'Color', 'none', 'FontSize', sp_R.FontSize);
 ylabel(sp_R, '{\it R}/{\it R}_0');
 xlim(sp_R, [0, tf]);
 ylim(sp_R, [0, max(Rv)/Rv(1)*1.1]);
@@ -78,7 +93,8 @@ set(sp_R, 'XTickLabel', {});
 
 % Col 1b: mean speed vs time
 sp_V = axes(fig); hold(sp_V, 'on'); box(sp_V, 'on');
-plot(sp_V, tv, Ubar/U, '-', 'Color', line_col);
+plot(sp_V, tv, Ubar/U, '-', 'Color', line_col, 'DisplayName', 'direct');
+plot(sp_V, tv_ff, Ubar_ff/U, '--', 'Color', [0.2 0.2 0.2], 'DisplayName', 'far-field');
 xlabel(sp_V, 'time, {\it t}');
 ylabel(sp_V, '\langle{\it u}_{cm,{\it{r}}} \rangle / {\it{U}}');
 xlim(sp_V, [0, tf]);

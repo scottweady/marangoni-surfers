@@ -254,6 +254,91 @@ function simulate(ψ0, G::SpectralGrid; tf=10.0,
 
 end
 
+# Linearized dynamics about a time-dependent solution: integrates ψ as in `simulate` together
+# with perturbations φ satisfying ∂φ/∂t = J(ψ)φ, with the same steps. Since the explicit
+# right-hand side N is quadratic in ψ, J(ψ)φ = [N(ψ + φ) - N(ψ - φ)]/2 exactly. Each φ is
+# rescaled to unit norm at save times, with the accumulated log-amplification kept in
+# `logA`; `callback(t, ψ, φs, logA)` is called at t = 0 and at every save.
+function simulate_tangent(ψ0, φ0s, G::SpectralGrid; tf=10.0,
+                          U=0.098175, β=0.0, η=π/2, dT=0.0, dR=0.0,
+                          cfl=0.2, dt_max=Inf, ω_max=1.25, tplt=tf/20,
+                          callback=nothing, verbose=true, dealias=true)
+
+    ψ = copy(ψ0)
+    φs = [copy(φ) for φ in φ0s]
+    logA = zeros(length(φs))
+
+    Nexp(f) = rhs(f, G; U=U, β=β, η=η, dT=0.0, dR=0.0, dealias=dealias)
+    Jexp(φ) = 0.5 .* (Nexp(ψ .+ φ) .- Nexp(ψ .- φ))
+    D = [-(dT * (G.kx[i]^2 + G.ky[j]^2) + dR * G.kθ[m]^2)
+         for i in 1:G.Nx, j in 1:G.Ny, m in 1:G.Nθ]
+
+    # SBDF2 step for f with explicit term Nf, given the previous state and term
+    function sbdf2(f, f_prev, Nf, Nf_prev, dt, ω, first)
+        a0, a1, a2 = (1 + 2ω) / (1 + ω), -(1 + ω), ω^2 / (1 + ω)
+        b = first ? f .+ dt .* Nf : -a1 .* f .- a2 .* f_prev .+ dt .* ((1 + ω) .* Nf .- ω .* Nf_prev)
+        return real.(ifft(fft(b) ./ (a0 .- dt .* D)))
+    end
+
+    ψ_prev, N_prev = similar(ψ), similar(ψ)
+    φ_prev = [similar(φ) for φ in φs]
+    Nφ_prev = [similar(φ) for φ in φs]
+    dt_prev = 0.0
+
+    function renormalize!()
+        for k in eachindex(φs)
+            s = sqrt(sum(abs2, φs[k]))
+            φs[k] ./= s; φ_prev[k] ./= s; Nφ_prev[k] ./= s
+            logA[k] += log(s)
+        end
+    end
+
+    renormalize!()
+    logA .= 0.0
+    callback === nothing || callback(0.0, ψ, φs, logA)
+
+    t, next_save, nstep = 0.0, tplt, 0
+    while t < tf
+
+        dt, umax, θdotmax = timestep(ψ, G; U=U, β=β, η=η, cfl=cfl, dt_max=dt_max)
+        nstep > 0 && (dt = min(dt, ω_max * dt_prev))
+        t_stop = min(tf, next_save)
+        if t + dt >= t_stop - 1e-12
+            dt = t_stop - t
+        elseif t + 2dt > t_stop
+            dt = (t_stop - t) / 2
+        end
+        ω = nstep == 0 ? 0.0 : dt / dt_prev
+
+        # tangent terms are evaluated about ψ at the current step
+        Nφ = [Jexp(φ) for φ in φs]
+        Nn = Nexp(ψ)
+        for k in eachindex(φs)
+            φ_new = sbdf2(φs[k], φ_prev[k], Nφ[k], Nφ_prev[k], dt, ω, nstep == 0)
+            φ_prev[k] .= φs[k]; Nφ_prev[k] .= Nφ[k]; φs[k] = φ_new
+        end
+        ψ_new = sbdf2(ψ, ψ_prev, Nn, N_prev, dt, ω, nstep == 0)
+        ψ_prev .= ψ; N_prev .= Nn; ψ = ψ_new
+
+        dt_prev = dt
+        t += dt
+        nstep += 1
+
+        if t >= next_save - 1e-12
+            renormalize!()
+            callback === nothing || callback(t, ψ, φs, logA)
+            verbose && @printf("t = %8.4f  dt = %.2e  |u|max = %.3e  |θ̇|max = %.3e  log A = %s\n",
+                               t, dt, umax, θdotmax, join((@sprintf("%+.3f", a) for a in logA), " "))
+            next_save += tplt
+        end
+
+    end
+
+    verbose && @printf("done: %d steps\n", nstep)
+    return ψ, φs, logA
+
+end
+
 # -- Initial conditions --------------------------------------------------------
 
 function ic_vonmises(G::SpectralGrid, ρ, θ0; ζ)

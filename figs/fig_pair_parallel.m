@@ -107,9 +107,9 @@ for k = 1:numel(files)
         plot(axOmg, t(end), ang1(end) - pi/2, 'o', 'Color', c, 'MarkerFaceColor', 'w', 'HandleVisibility', 'off');
         % plot(axOmg, t(end), ang2(end) - pi/2, 'o', 'Color', c, 'MarkerFaceColor', 'w', 'HandleVisibility', 'off');
     end
-    [U, eta, beta] = single_particle(a_vals(k)/b_vals(k));
+    [U, eta, beta, tau0, tau1] = single_particle(a_vals(k)/b_vals(k));
     opts = odeset('RelTol', 1e-12, 'AbsTol', 1e-12, 'Events', @contact);
-    [tf, Y] = ode45(@(~, y) farfield_rhs(y, U, eta, beta), [0 500], A(1, 2:7)', opts);
+    [tf, Y] = ode45(@(~, y) farfield_rhs(y, U, eta, beta, tau0, tau1), [0 500], A(1, 2:7)', opts);
     sep_ff = hypot(Y(:,1) - Y(:,4), Y(:,2) - Y(:,5));
     plot(axSep, tf, sep_ff, '--', 'Color', c);
     plot(axOmg, tf, unwrap(Y(:,3)) - pi/2, '--', 'Color', c, 'HandleVisibility', 'off');
@@ -167,17 +167,26 @@ end
 panel_label('\it (d)', axSep, -0.95, 0.2);
 panel_label('\it (e)', axOmg, -0.95, 0.2);
 
-% Far-field ODEs (5.2)-(5.3) for a pair, y = [x1 y1 θ1 x2 y2 θ2], r_ij = x_i - x_j.
-function dy = farfield_rhs(y, U, eta, beta)
+% Far-field ODEs with the monopole closure for a pair, y = [x1 y1 θ1 x2 y2 θ2],
+% r_ij = x_i - x_j. The amplitudes alpha_i and the shift in c_inf solve the closure system,
+% giving monopoles m0_i = tau0*alpha_i and dipole strengths eta_i = eta - tau1*alpha_i.
+function dy = farfield_rhs(y, U, eta, beta, tau0, tau1)
     X = [y(1) y(2); y(4) y(5)];  th = [y(3) y(6)];
+    P = [cos(th); sin(th)];
+    r = (X(1,:) - X(2,:))';  d = norm(r);  e = [r/d, -r/d];   % e(:,i) = r_ij/|r_ij|
+    A = [1, -tau0/(2*pi)*log(d) + tau1/(2*pi)*(e(:,1)'*P(:,2))/d, 1;
+         -tau0/(2*pi)*log(d) + tau1/(2*pi)*(e(:,2)'*P(:,1))/d, 1, 1;
+         1, 1, 0];
+    rhs = eta/(2*pi) * [(e(:,1)'*P(:,2))/d; (e(:,2)'*P(:,1))/d; 0];
+    alpha = A \ rhs;
+    m0 = tau0*alpha(1:2);  etas = eta - tau1*alpha(1:2);
     dy = zeros(6, 1);
     for i = 1:2
         j  = 3 - i;
-        p  = [cos(th(i)); sin(th(i))];  q = [-p(2); p(1)];
-        pj = [cos(th(j)); sin(th(j))];
-        r  = (X(i,:) - X(j,:))';  d = norm(r);  e = r/d;
-        u  = U*p + eta*(pj - e*(e'*pj))/(4*pi*d);
-        w  = -eta*beta*( -3*(q'*e)*(e'*p)*(e'*pj) + (q'*e)*(pj'*p) + (q'*pj)*(e'*p) )/(4*pi*d^2);
+        p  = P(:,i);  q = [-p(2); p(1)];  pj = P(:,j);  ei = e(:,i);
+        u  = U*etas(i)/eta*p + m0(j)*ei/(4*pi) + etas(j)*(pj - ei*(ei'*pj))/(4*pi*d);
+        w  = -beta*m0(j)*(q'*ei)*(ei'*p)/(4*pi*d) ...
+             - etas(j)*beta*( -3*(q'*ei)*(ei'*p)*(ei'*pj) + (q'*ei)*(pj'*p) + (q'*pj)*(ei'*p) )/(4*pi*d^2);
         dy(3*i-2:3*i) = [u; w];
     end
 end
