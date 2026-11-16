@@ -1,15 +1,16 @@
 # Generate the data for the paper figures (figs/makefigs.m), writing into data/, or into
 # data-DD-MM-YYYY (today's date) if data/ already exists.
 #
-#     julia --project=. scripts/makedata.jl [single] [pairs] [suspension] [resume] [data=<dir>]
+#     julia --project=. scripts/makedata.jl [single] [pairs] [suspension] [tandem] [resume] [data=<dir>]
 #
 # With no groups, all groups are run. Each generator runs in its own headless Julia process
 # with the settings used in the figures, passed as `name=value` overrides (see
 # `script_param`); run on their own, the generators keep their exploratory defaults.
 #
-#   single      single-particle convergence, monopole sweep, mean-field stability, schematic
+#   single      single-particle and pair-gap convergence, monopole sweep, schematic
 #   pairs       pair fields and pair trajectories
-#   suspension  patch expansion runs and the expansion snapshot (slowest)
+#   suspension  patch expansion runs, their far-field counterparts, and the expansion snapshot
+#   tandem      tandem chain runs, their linear stability, and the chain snapshots
 #
 # Options:
 #   resume      skip runs whose output is already complete; a run that was interrupted
@@ -85,12 +86,11 @@ function single()
     convdir = joinpath(DATA, "convergence")
     run_script("scripts/convergence/convergence.jl", :plot => false, :outdir => convdir;
                done=all(isfile, joinpath.(convdir, ["convergence_expansion.dat", "convergence_boundary.dat"])))
+    run_script("scripts/convergence/pair_gap_convergence.jl", :plot => false, :outdir => convdir;
+               done=isfile(joinpath(convdir, "pair_gap_expansion.dat")))
     run_script("scripts/farfield/monopole_vs_separation.jl",
                :outdir => joinpath(DATA, "multipole");
                done=isfile(joinpath(DATA, "multipole", "monopole_vs_separation.dat")))
-    run_script("scripts/meanfield/vonmises_growth_rate.jl",
-               :outdir => joinpath(DATA, "stability");
-               done=isfile(joinpath(DATA, "stability", "vonmises_growth_rate.dat")))
     run_script("figs/schematic_snapshot.jl",
                :outdir => joinpath(DATA, "schematic");
                done=isfile(joinpath(DATA, "schematic", "schematic_snapshot.dat")))
@@ -137,6 +137,13 @@ function suspension()
         run_script("scripts/suspension/suspension.jl", :aspect_ratio => aspect_ratio,
                    :t_end => t_end, :plot => false, :outdir => framedir;
                    done=frames_done(framedir, t_end))
+
+        # far-field model with the monopole closure, from the same initial configuration
+        # and up to the final time of the direct run
+        ffdir = joinpath(patchdir, "farfield_$(aspect_ratio)")
+        run_script("scripts/farfield/farfield_patch.jl", :aspect_ratio => aspect_ratio,
+                   :closure => true, :framedir => framedir, :outdir => ffdir;
+                   done=frames_done(ffdir, t_end))
     end
 
     # the expansion snapshot is taken from the disk run
@@ -144,10 +151,31 @@ function suspension()
                :outdir => patchdir; done=isfile(joinpath(patchdir, "expansion_snapshot.dat")))
 end
 
+function tandem()
+    tandemdir = joinpath(DATA, "tandem")
+    N, d, m, ε, t_end = 50, 10.0, 5, 0.01, 1000.0
+    for aspect_ratio in (0.25, 1.0, 4.0)
+        framedir = joinpath(tandemdir, "tandem_$(aspect_ratio)_N$(N)_d$(d)_m$(m)_ε$(ε)")
+        run_script("scripts/suspension/tandem.jl", :aspect_ratio => aspect_ratio,
+                   :N => N, :d => d, :m => m, :ε => ε, :δθ => 0.0, :t_end => t_end,
+                   :save_every => 10.0, :plot => false, :outdir => framedir;
+                   done=frames_done(framedir, t_end))
+    end
+
+    run_script("scripts/farfield/farfield_tandem_stability.jl", :N => N, :d => d, :m => m,
+               :ε => ε, :t_end => t_end, :outdir => tandemdir;
+               done=all(isfile, [joinpath(tandemdir, "tandem_$(f)_$(r).dat")
+                                 for f in ("stability", "prediction"), r in (0.25, 1.0, 4.0)]))
+
+    run_script("figs/tandem_snapshot.jl", :tandemdir => tandemdir, :outdir => tandemdir;
+               done=all(isfile, [joinpath(tandemdir, "tandem_snapshot_$(r)_t$(t).dat")
+                                 for r in (0.25, 1.0, 4.0), t in (0, 1000)]))
+end
+
 # -- Run -----------------------------------------------------------------------
 
-groups = Dict("single" => single, "pairs" => pairs, "suspension" => suspension)
-selected = isempty(GROUPS) ? ["single", "pairs", "suspension"] : GROUPS
+groups = Dict("single" => single, "pairs" => pairs, "suspension" => suspension, "tandem" => tandem)
+selected = isempty(GROUPS) ? ["single", "pairs", "suspension", "tandem"] : GROUPS
 for name in selected
     haskey(groups, name) || error("Unknown group $name; choose from $(join(keys(groups), ", "))")
 end

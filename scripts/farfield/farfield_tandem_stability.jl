@@ -17,10 +17,14 @@
 # β > 0, and two travelling waves for β < 0. The matrix at -κ is the conjugate of that at κ,
 # so a real perturbation (cos κj, sin κj), which combines the two, has the eigenvalues λ±
 # and their conjugates, Re λ± ± i |Im λ±|. Wavenumbers are sampled as the modes κ = 2π m/N
-# of a chain of `N` particles.
+# of a chain of `N` particles. The linear prediction for an orientation wave of `m`
+# wavelengths and amplitude `ε` along the chain is |Θ(t)| for (Y, Θ)(0) = (0, ε), matching
+# the initial condition of scripts/suspension/tandem.jl.
 #
 # Output: output/tandem_stability_<a/b>.dat, one row per mode
 #   m  κ  Re λ₊  |Im λ₊|  Re λ₋  |Im λ₋|
+# output/tandem_prediction_<a/b>.dat, one row per time
+#   t  |Θ|
 
 using QuadGK
 
@@ -28,9 +32,13 @@ include("../../src/script_params.jl")
 include("../../src/farfield.jl")
 
 aspect_ratios = script_param(:aspect_ratios, [0.25, 1.0, 4.0])
-N             = script_param(:N, 100)
+N             = script_param(:N, 50)
 d             = script_param(:d, 10.0)
-outdir        = script_param(:outdir, joinpath(@__DIR__, "output"))
+m             = script_param(:m, 5)          # wavelengths of the imposed wave
+ε             = script_param(:ε, 0.01)        # wave amplitude
+t_end         = script_param(:t_end, 1000.0)
+save_every    = script_param(:save_every, 10.0)
+outdir       = script_param(:outdir, joinpath(@__DIR__, "output"))
 
 """
     clausen2(κ)
@@ -40,15 +48,26 @@ Clausen function `Cl₂(κ) = Σ sin(nκ)/n² = -∫₀^κ log(2 sin(t/2)) dt`, 
 clausen2(κ) = -quadgk(t -> log(2sin(t / 2)), 0, κ)[1]
 
 """
+    tandem_coefficients(κ, d, U, η, β)
+
+Coefficients `(a, B, C)` of the linearized dynamics of mode `κ = kd` of an infinite tandem
+chain with spacing `d`.
+"""
+function tandem_coefficients(κ, d, U, η, β)
+    a = η * clausen2(κ) / (2π * d^2)
+    B = U - η * log(2sin(κ / 2)) / (2π * d)
+    C = β * η * quadgk(clausen2, 0, κ)[1] / (π * d^3)
+    return a, B, C
+end
+
+"""
     tandem_eigenvalues(κ, d, U, η, β)
 
 Eigenvalues `(λ₊, λ₋)` of the linearized dynamics of the transverse displacement and
 orientation amplitudes `(Y, Θ)` of mode `κ = kd` of an infinite tandem chain with spacing `d`.
 """
 function tandem_eigenvalues(κ, d, U, η, β)
-    a = η * clausen2(κ) / (2π * d^2)
-    B = U - η * log(2sin(κ / 2)) / (2π * d)
-    C = β * η * quadgk(clausen2, 0, κ)[1] / (π * d^3)
+    a, B, C = tandem_coefficients(κ, d, U, η, β)
     s = sqrt(complex(4B * C - a^2 * (1 + β)^2))
     return (im * a * (β - 1) + s) / 2, (im * a * (β - 1) - s) / 2
 end
@@ -63,6 +82,16 @@ for aspect_ratio in aspect_ratios
             λ₊, λ₋ = tandem_eigenvalues(κ, d, U, η, β)
             @printf(io, "%d  %.10e  %.10e  %.10e  %.10e  %.10e\n", m, κ,
                     real(λ₊), abs(imag(λ₊)), real(λ₋), abs(imag(λ₋)))
+        end
+    end
+    println("Wrote ", relpath(file, @__DIR__))
+
+    a, B, C = tandem_coefficients(2π * m / N, d, U, η, β)
+    M = [-im*a B; C im*β*a]
+    file = joinpath(outdir, "tandem_prediction_$(aspect_ratio).dat")
+    open(file, "w") do io
+        for t in 0:save_every:t_end
+            @printf(io, "%.10e  %.10e\n", t, abs((exp(M * t) * [0, ε])[2]))
         end
     end
     println("Wrote ", relpath(file, @__DIR__))

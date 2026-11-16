@@ -3,6 +3,7 @@
 %
 %   makefigs                   all figures
 %   makefigs single pair       only the named groups: single, pair, suspension
+%   makefigs fig3 fig8         only the named figures, numbered as in the manuscript
 function makefigs(varargin)
 
 figsDir = fileparts(mfilename('fullpath'));
@@ -12,17 +13,29 @@ outDir  = fullfile(figsDir, 'output');
 if ~exist(outDir, 'dir'), mkdir(outDir); end
 
 groups = struct( ...
-    'single',     {{'fig_schematic', 'fig_multipole', 'fig_stability', 'fig_convergence'}}, ...
+    'single',     {{'fig_schematic', 'fig_multipole', 'fig_convergence'}}, ...
     'pair',       {{'fig_pair_parallel', 'fig_pair_antiparallel', 'fig_equilibrium_separation'}}, ...
-    'suspension', {{'fig_expansion', 'fig_patches_farfield'}});
+    'suspension', {{'fig_expansion', 'fig_patches_farfield', 'fig_tandem'}});
+
+% figures in the order they appear in the manuscript, selected as fig1, fig2, ...
+numbered = {'fig_schematic', 'fig_multipole', 'fig_pair_parallel', 'fig_pair_antiparallel', ...
+            'fig_equilibrium_separation', 'fig_expansion', 'fig_patches_farfield', ...
+            'fig_tandem', 'fig_convergence'};
 
 selected = varargin;
 if isempty(selected), selected = fieldnames(groups)'; end
-unknown = setdiff(selected, fieldnames(groups));
-if ~isempty(unknown)
-    error('Unknown figure group: %s (expected single, pair, or suspension)', strjoin(unknown, ', '));
+scripts = cell(1, numel(selected));
+for k = 1:numel(selected)
+    n = sscanf(selected{k}, 'fig%d');
+    if isfield(groups, selected{k})
+        scripts{k} = groups.(selected{k});
+    elseif ~isempty(n) && strcmp(selected{k}, sprintf('fig%d', n)) && n >= 1 && n <= numel(numbered)
+        scripts{k} = numbered(n);
+    else
+        error('Unknown figure: %s (expected single, pair, suspension, or fig1 to fig%d)', ...
+              selected{k}, numel(numbered));
+    end
 end
-scripts = cellfun(@(g) groups.(g), selected, 'UniformOutput', false);
 scripts = [scripts{:}];
 
 % A figure whose script fails (e.g. its data has not been generated) is skipped
