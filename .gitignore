@@ -12,6 +12,11 @@ presentation
 
 anim*
 
+# The library's own environment is resolved locally; scripts/Manifest.toml pins the
+# versions that reproduce the paper
+/Manifest.toml
+/test/Manifest.toml
+
 *.ai
 *.dat
 *.mp4

@@ -3,10 +3,11 @@
 # finest resolution. By default only the asserted resolutions are run; with `--verbose`
 # each test runs its full span of resolutions and prints the convergence table.
 #
-#     julia --project=.. runtests.jl              # quick pass/fail summary
-#     julia --project=.. runtests.jl --verbose    # full convergence study
+#     julia --project=. runtests.jl               # quick pass/fail summary (from test/)
+#     julia --project=. runtests.jl --verbose     # full convergence study
 #
-# or, from the package environment, `using Pkg; Pkg.test()` for the quick summary.
+# with the test environment `test/Project.toml`, or, from the package environment,
+# `using Pkg; Pkg.test()` for the quick summary.
 
 using Test
 using LinearAlgebra: norm

@@ -1,7 +1,7 @@
 # Generate the data for the paper figures (figs/makefigs.m), writing into data/, or into
 # data-DD-MM-YYYY (today's date) if data/ already exists.
 #
-#     julia --project=. scripts/makedata.jl [single] [pairs] [suspension] [tandem] [resume] [data=<dir>]
+#     julia --project=scripts scripts/makedata.jl [single] [pairs] [suspension] [tandem] [resume] [data=<dir>]
 #
 # With no groups, all groups are run. Each generator runs in its own headless Julia process
 # with the settings used in the figures, passed as `name=value` overrides (see
@@ -49,7 +49,7 @@ function run_script(script, params...; done=false)
         return
     end
     println("\n== ", script, " ", join(args, " "))
-    cmd = `$(Base.julia_cmd()) --project=$ROOT $(joinpath(ROOT, script)) $args`
+    cmd = `$(Base.julia_cmd()) --project=$(joinpath(ROOT, "scripts")) $(joinpath(ROOT, script)) $args`
     t = @elapsed run(pipeline(addenv(cmd, "GKSwstype" => "100"); stdin=devnull))
     println("== done in ", round(t / 60, digits=1), " min")
 end
