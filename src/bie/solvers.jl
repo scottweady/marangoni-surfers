@@ -68,12 +68,46 @@ function laplace_solve(Γ::Vector{Boundary}, bc::Vector{Symbol}, g::Vector; deca
     offs  = [0; cumsum(length.(Γ))]
     Ntotal = offs[end]
 
-    A   = zeros(Ntotal + 1, Ntotal + 1)
-    rhs = zeros(Ntotal + 1)
+    A   = _laplace_matrix(Γ, bc; partner=partner)
+    rhs = [vcat(g...); 0.0]
+
+    if decay
+      σ_aug     = A \ rhs
+      σ = [σ_aug[offs[i]+1:offs[i+1]] for i in 1:Nparticles]
+      λ = σ_aug[end]
+    else
+      σ = A[1:Ntotal, 1:Ntotal] \ rhs[1:Ntotal]
+      σ = [σ[offs[i]+1:offs[i+1]] for i in 1:Nparticles]
+      λ = 0.0
+    end
+
+    return σ, λ
+
+end
+
+"""
+    _laplace_matrix(Γ, bc; partner=nothing)
+
+Matrix of the mixed Dirichlet/Neumann Laplace BIM system of [`laplace_solve`](@ref),
+augmented with the far-field constant `ϕ∞` (last column, on the Dirichlet rows) and the
+constraint `∫_all σ ds = 0` (last row).
+
+# Arguments
+- `Γ::Vector{Boundary}`, `bc::Vector{Symbol}`, `partner`: as in [`laplace_solve`](@ref).
+
+# Returns
+- `(Ntotal + 1) × (Ntotal + 1)` matrix, with `Ntotal` the total number of nodes.
+"""
+function _laplace_matrix(Γ::Vector{Boundary}, bc::Vector{Symbol}; partner=nothing)
+
+    Nparticles = length(Γ)
+    offs  = [0; cumsum(length.(Γ))]
+    Ntotal = offs[end]
+
+    A = zeros(Ntotal + 1, Ntotal + 1)
 
     for i in 1:Nparticles
         ri = offs[i]+1 : offs[i+1]
-        rhs[ri] = g[i]
         for j in 1:Nparticles
             cj = offs[j]+1 : offs[j+1]
             if i == j
@@ -93,17 +127,7 @@ function laplace_solve(Γ::Vector{Boundary}, bc::Vector{Symbol}, g::Vector; deca
 
     end
 
-    if decay
-      σ_aug     = A \ rhs
-      σ = [σ_aug[offs[i]+1:offs[i+1]] for i in 1:Nparticles]
-      λ = σ_aug[end]
-    else
-      σ = A[1:Ntotal, 1:Ntotal] \ rhs[1:Ntotal]
-      σ = [σ[offs[i]+1:offs[i+1]] for i in 1:Nparticles]
-      λ = 0.0
-    end
-
-    return σ, λ
+    return A
 
 end
 

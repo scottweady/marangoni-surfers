@@ -19,7 +19,9 @@ module MarangoniSurfers
 
 using FastGaussQuadrature
 using FFTW
+import FINUFFT
 using FMM3D
+using IterativeSolvers: gmres!
 using LinearAlgebra
 using Printf
 using ProjectedSphericalHarmonics
@@ -51,6 +53,7 @@ include("script_params.jl")
 include(joinpath("bie", "boundary.jl"))
 include(joinpath("bie", "quadrature.jl"))
 include(joinpath("bie", "matrices.jl"))
+include(joinpath("bie", "ewald.jl"))
 include(joinpath("bie", "operators.jl"))
 include(joinpath("bie", "solvers.jl"))
 include(joinpath("bie", "closeeval.jl"))

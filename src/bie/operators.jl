@@ -213,25 +213,27 @@ function ∇ℋ(ζ, τ, Γ::Boundary; k=1.0)
 end
 
 """
-    ∇ℬ(ζ, σs, Γs; eps=1e-6)
+    ∇ℬ(ζ, σs, Γs; eps=1e-6, method=:ewald)
 
 Gradient of the biharmonic potential `∇ℬ(ζ) = 1/(4π) ∫_Γ (ζ-γ')/|ζ-γ'| σ ds'`, summed
 over a collection of source boundaries.
 
 Dispatches to direct [`_smooth_evaluation`](@ref) when `length(ζ) * total_sources ≤
-10000`, otherwise uses three `lfmm3d` calls. Valid when `ζ` is well-separated from every
+10000`. Otherwise sums by Ewald splitting and NUFFT ([`_gradB_ewald`](@ref)), or with
+`method=:fmm` by three `lfmm3d` calls. Valid when `ζ` is well-separated from every
 `Γ ∈ Γs`; use a dedicated close-evaluation routine near open arcs.
 
 # Arguments
 - `ζ`: target point(s), scalar or array.
 - `σs::Vector`: densities, one per boundary in `Γs`.
 - `Γs::Vector{Boundary}`: source boundaries.
-- `eps`: FMM requested accuracy (default `1e-6`).
+- `eps`: requested accuracy of the fast sum (default `1e-6`).
+- `method`: fast sum for large problems, `:ewald` (default) or `:fmm`.
 
 # Returns
 - `(bx, by)`: gradient components matching the shape of `ζ`.
 """
-function ∇ℬ(ζ, σs, Γs::Vector{Boundary}; eps=1e-6)
+function ∇ℬ(ζ, σs, Γs::Vector{Boundary}; eps=1e-6, method=:ewald)
 
     Nsrc = sum(length(Γ) for Γ in Γs)
 
@@ -247,6 +249,14 @@ function ∇ℬ(ζ, σs, Γs::Vector{Boundary}; eps=1e-6)
 
     q  = vcat([σs[j] .* Γs[j].dΓ for j in eachindex(Γs)]...)
     γs = vcat([Γs[j].γ for j in eachindex(Γs)]...)
+
+    if method == :ewald
+        bx, by = _gradB_ewald(vcat(real.(γs)', imag.(γs)'), real.(q),
+                              vcat(real.(vec(ζ))', imag.(vec(ζ))'); tol=eps)
+        return reshape(bx, size(ζ)), reshape(by, size(ζ))
+    end
+    method == :fmm || throw(ArgumentError("method must be :ewald or :fmm, got $method"))
+
     Ns   = length(γs)
     srcs = vcat(real.(γs)', imag.(γs)', zeros(1, Ns))
     ζv   = vec(ζ)
@@ -263,7 +273,7 @@ function ∇ℬ(ζ, σs, Γs::Vector{Boundary}; eps=1e-6)
 end
 
 """
-    ∇ℬ(ζ, σ, Γ; eps=1e-6)
+    ∇ℬ(ζ, σ, Γ; eps=1e-6, method=:ewald)
 
 Single-boundary convenience wrapper for [`∇ℬ`](@ref).
 
@@ -271,11 +281,12 @@ Single-boundary convenience wrapper for [`∇ℬ`](@ref).
 - `ζ`: target point(s), scalar or array.
 - `σ`: density sampled at the quadrature nodes of `Γ`.
 - `Γ::Boundary`: source boundary.
-- `eps`: FMM requested accuracy (default `1e-6`).
+- `eps`: requested accuracy of the fast sum (default `1e-6`).
+- `method`: fast sum for large problems, `:ewald` (default) or `:fmm`.
 
 # Returns
 - `(bx, by)`: gradient components matching the shape of `ζ`.
 """
-function ∇ℬ(ζ, σ, Γ::Boundary; eps=1e-6)
-    return ∇ℬ(ζ, [σ], [Γ]; eps=eps)
+function ∇ℬ(ζ, σ, Γ::Boundary; eps=1e-6, method=:ewald)
+    return ∇ℬ(ζ, [σ], [Γ]; eps=eps, method=method)
 end

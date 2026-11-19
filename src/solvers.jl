@@ -137,8 +137,8 @@ end
 """
     marangoni_self_operator(Ω, Γ_D, Γ_N)
 
-Operator giving the PSH coefficients of a surfer's own Marangoni flow `∇ℬ[σ]` on its Stokes
-domain, in the body frame.
+Operators for a surfer's own Marangoni flow `∇ℬ[σ]` on its Stokes domain, in the body frame:
+its PSH coefficients, and its plain quadrature sum at the Stokes nodes.
 
 `psh` approximates the inner products `∫ conj(Y_lm) u dA_ζ / w` by quadrature, which
 converges slowly for the self flow since it is not smooth at ∂Ω. The inner products are
@@ -151,13 +151,21 @@ the matrix `Y' diag(dw)`, `𝒮` is `K̂_S`, and an even expansion on the rim is
 directly at the arc parameters. The rows for the top degree `l = M` would need `x Y_lm` of
 degree `M + 1`, which `Ω` cannot represent, so they are left zero.
 
+The sampled matrices `Bx`, `By` give the arc quadrature sum of `∇ℬ[σ]` at the Stokes nodes,
+the same sum a global evaluation over all particles computes there. Since the kernel is
+invariant under rigid motion, a placed particle's own contribution is this sum rotated to
+the world frame, so it can be removed from the global evaluation without evaluating it anew.
+
 # Arguments
 - `Ω`: Stokes domain.
 - `Γ_D`, `Γ_N`: reference Dirichlet and Neumann arc boundaries, on ∂Ω.
 
 # Returns
-- `(Hx, Hy)`: matrices with `vec(psh(∇ℬ[σ]ᵢ, Ω)) ≈ Hᵢ * [σ_D; σ_N]` on the even modes
-  below the top degree.
+- `NamedTuple` with fields
+  - `Hx`, `Hy`: matrices with `vec(psh(∇ℬ[σ]ᵢ, Ω)) ≈ Hᵢ * [σ_D; σ_N]` on the even modes
+    below the top degree;
+  - `Bx`, `By`: matrices with `vec(∇ℬ[σ]ᵢ) = Bᵢ * [σ_D; σ_N]` at the Stokes nodes, by
+    the arc quadrature.
 """
 function marangoni_self_operator(Ω, Γ_D, Γ_N)
 
@@ -191,7 +199,13 @@ function marangoni_self_operator(Ω, Γ_D, Γ_N)
     Hy   = zeros(ComplexF64, length(Ω.z), length(s))
     Hx[modes[keep], :] = transpose(Tx[:, keep] .* dΓ)
     Hy[modes[keep], :] = transpose(Ty[:, keep] .* dΓ)
-    return Hx, Hy
+
+    # Arc quadrature sum of ∇ℬ at the Stokes nodes
+    r  = vec(Ω.z) .- transpose([Γ_D.γ; Γ_N.γ])
+    Bx = real.(r) ./ (4π .* abs.(r)) .* transpose(dΓ)
+    By = imag.(r) ./ (4π .* abs.(r)) .* transpose(dΓ)
+
+    return (Hx=Hx, Hy=Hy, Bx=Bx, By=By)
 
 end
 
@@ -209,13 +223,12 @@ PSH coefficients of a surfer's own Marangoni flow, in the body frame.
 - `(b̂x, b̂y)`: coefficient arrays with the shape of `Ω.z`.
 """
 function _marangoni_self_flow(self_op, σ_D, σ_N, Ω)
-    Hx, Hy = self_op
     σ = [σ_D; σ_N]
-    return reshape(Hx * σ, size(Ω.z)), reshape(Hy * σ, size(Ω.z))
+    return reshape(self_op.Hx * σ, size(Ω.z)), reshape(self_op.Hy * σ, size(Ω.z))
 end
 
 """
-    surfactant_solve(xcm, θcm, Γ_D, Γ_N, g)
+    surfactant_solve(xcm, θcm, Γ_D, Γ_N, g; tol=nothing)
 
 Solve the surfactant Laplace problem given reference arc boundaries.
 
@@ -230,12 +243,14 @@ Laplace kernel is translation/rotation invariant.
 - `Γ_D::Boundary`: reference Dirichlet arc boundary.
 - `Γ_N::Boundary`: reference Neumann arc boundary.
 - `g`: Dirichlet boundary data, as a function of arc parameter `s`.
+- `tol`: if `nothing` (default), solve the dense system directly; otherwise solve it by
+  GMRES to this relative residual, see [`_surfactant_gmres`](@ref).
 
 # Returns
 - `(σ, ϕ∞, Γ)`: layer densities per placed boundary, the far-field constant, and the
   vector of placed `Boundary`s (alternating `Γ_D`, `Γ_N` per particle).
 """
-function surfactant_solve(xcm, θcm, Γ_D::Boundary, Γ_N::Boundary, g)
+function surfactant_solve(xcm, θcm, Γ_D::Boundary, Γ_N::Boundary, g; tol=nothing)
 
     Γ = Boundary[]
     bc = Symbol[]
@@ -249,10 +264,162 @@ function surfactant_solve(xcm, θcm, Γ_D::Boundary, Γ_N::Boundary, g)
         push!(rhs, g.(Γ_D_i.s), zeros(length(Γ_N_i.s)))
     end
 
+    if tol !== nothing
+        σ, ϕinf = _surfactant_gmres(xcm, θcm, Γ, Γ_D, Γ_N, rhs; tol=tol)
+        return σ, ϕinf, Γ
+    end
+
     # each particle's Dirichlet and Neumann arcs meet at its junctions
     partner = [isodd(k) ? k + 1 : k - 1 for k in eachindex(Γ)]
     σ, ϕinf = laplace_solve(Γ, bc, rhs; partner=partner)
     return σ, ϕinf, Γ
+
+end
+
+# Fewest particles for which `marangoni_solve` solves the surfactant system by GMRES: about
+# where it overtakes the dense solve (Ns = 64, 8 threads)
+const _SURFACTANT_GMRES_MIN = 24
+
+# Square linear operator from an in-place apply `f!(y, x)`, for IterativeSolvers
+struct _LinearOperator{F}
+    f!::F
+    n::Int
+end
+Base.size(A::_LinearOperator) = (A.n, A.n)
+Base.size(A::_LinearOperator, d) = A.n
+Base.eltype(::_LinearOperator) = Float64
+LinearAlgebra.mul!(y, A::_LinearOperator, x) = (A.f!(y, x); y)
+
+"""
+    _surfactant_gmres(xcm, θcm, Γ, Γ_D, Γ_N, rhs; tol)
+
+Iterative solve of the surfactant system of [`surfactant_solve`](@ref), for particles at
+`(xcm, θcm)` with placed boundaries `Γ` (alternating `Γ_D`, `Γ_N` per particle) and boundary
+data `rhs`.
+
+Every particle has the same self block `S`, the system of its own two arcs (with the
+junction couplings), since the Laplace kernels are invariant under rigid motion. The
+interactions between particles are plain quadrature sums of the log kernel (Dirichlet rows)
+and of its normal derivative (Neumann rows), all summed at once by
+[`_laplace_ewald_plan`](@ref), which also includes each particle's own pairs; those are swapped
+for `S` by adding `C = S − P`, with `P` the plain quadrature sum over a particle's own pairs.
+
+GMRES runs on the right-preconditioned system, with the kernel sums at `tol / 10`. The
+preconditioner is two-level. Since the log kernel does not decay, every particle's net
+charge acts on every other, which the block-diagonal `S⁻¹` alone misses. The coarse level
+takes each particle's density to be a multiple of its response `ẑ = S⁻¹[1; 0]` to a unit
+potential on its Dirichlet arc, which the other particles see as a point charge `τ₀ = ∫ ẑ ds`
+at its charge centroid; with `ϕ∞` and the zero net charge constraint this is an
+`(Np + 1)`-unknown system, the monopole far-field model, solved directly. The remaining
+residual, under the same point-charge model, is then solved block by block with `S⁻¹`.
+
+# Returns
+- `(σ, ϕ∞)`: layer densities per placed boundary, and the far-field constant.
+"""
+function _surfactant_gmres(xcm, θcm, Γ, Γ_D, Γ_N, rhs; tol)
+
+    nD, nN = length(Γ_D), length(Γ_N)
+    m  = nD + nN
+    Np = length(Γ) ÷ 2
+    n  = m * Np
+
+    # Self block, and its plain quadrature part (Dirichlet rows: single layer; Neumann rows:
+    # adjoint double layer)
+    S  = _laplace_matrix([Γ_D, Γ_N], [:D, :N]; partner=[2, 1])[1:m, 1:m]
+    γ  = [Γ_D.γ; Γ_N.γ]
+    dΓ = [Γ_D.dΓ; Γ_N.dΓ]
+    n̂N = (imag.(Γ_N.γt) .- im .* real.(Γ_N.γt)) ./ abs.(Γ_N.γt)
+    P  = zeros(m, m)
+    for i in 1:m, j in 1:m
+        i == j && continue
+        r = γ[i] - γ[j]
+        P[i, j] = i <= nD ? -log(abs(r)) / 2π * dΓ[j] : -dot(n̂N[i - nD], r) / (2π * abs2(r)) * dΓ[j]
+    end
+    C  = S - P
+    Sf = lu(S)
+
+    # Placed nodes, weights and Neumann-row normals, particle by particle
+    z   = reduce(vcat, [Γk.γ for Γk in Γ])
+    X   = vcat(real.(z)', imag.(z)')
+    dΓs = repeat(dΓ, Np)
+    isD = repeat([trues(nD); falses(nN)], Np)
+    n̂   = zeros(ComplexF64, n)
+    for k in 1:Np
+        γt = Γ[2k].γt
+        n̂[(k - 1) * m + nD .+ (1:nN)] = (imag.(γt) .- im .* real.(γt)) ./ abs.(γt)
+    end
+    Dbl    = [(k - 1) * m .+ (1:nD) for k in 1:Np]
+
+    # Coarse level: the response ẑ to a unit potential on the Dirichlet arc, its charge τ₀
+    # and charge centroid, and the potential (Dirichlet rows) or normal field (Neumann rows)
+    # of that point charge at every other particle's nodes
+    ẑ  = Sf \ [ones(nD); zeros(nN)]
+    τ₀ = sum(dΓ .* ẑ)
+    ξ  = sum(γ .* dΓ .* ẑ) / τ₀
+    zc = [xcm[k] + cis(θcm[k]) * ξ for k in 1:Np]
+    F  = zeros(n, Np)
+    Threads.@threads for p in 1:Np
+        for i in 1:n
+            (i - 1) ÷ m + 1 == p && continue
+            r = z[i] - zc[p]
+            F[i, p] = isD[i] ? -τ₀ * log(abs(r)) / 2π : -τ₀ * dot(n̂[i], r) / (2π * abs2(r))
+        end
+    end
+
+    # Coarse system, tested with the mean over each Dirichlet arc and the constraint row
+    Ac = zeros(Np + 1, Np + 1)
+    for q in 1:Np
+        Ac[q, 1:Np] = sum(F[Dbl[q], :], dims=1) ./ nD
+        Ac[q, q]   += 1
+        Ac[q, end]  = 1
+    end
+    Ac[end, 1:Np] .= τ₀
+    Acf = lu(Ac)
+
+    # Right preconditioner x = M⁻¹ w: coarse solve, then S⁻¹ on each block of the residual.
+    # Blocks are the columns of an m × Np matrix, so each step is one BLAS call (calling BLAS
+    # from Julia threads instead leaves later BLAS-heavy solves, such as the Stokes solve,
+    # several times slower)
+    function precond!(x, w)
+        W  = reshape(view(w, 1:n), m, Np)
+        c  = Acf \ [vec(sum(view(W, 1:nD, :), dims=1)) ./ nD; w[end]]
+        R  = reshape(w[1:n] .- F * c[1:Np], m, Np)
+        R[1:nD, :] .-= transpose(c[1:Np] .+ c[end])
+        reshape(view(x, 1:n), m, Np) .= (Sf \ R) .+ ẑ .* transpose(c[1:Np])
+        x[end] = c[end]
+        return x
+    end
+
+    E = _laplace_ewald_plan(X; tol=tol / 10)
+
+    function apply!(y, x)
+        σ = view(x, 1:n)
+        u = _ewald_apply(E, σ .* dΓs)
+        ϕ, gx, gy = view(u, :, 1), view(u, :, 2), view(u, :, 3)
+        @inbounds for i in 1:n
+            y[i] = isD[i] ? -ϕ[i] / 2π + x[end] : -(real(n̂[i]) * gx[i] + imag(n̂[i]) * gy[i]) / 2π
+        end
+        reshape(view(y, 1:n), m, Np) .+= C * reshape(σ, m, Np)
+        y[end] = sum(dΓs .* σ)
+        return y
+    end
+
+    # The BLAS calls are small, and BLAS threads spinning next to the threaded kernel sums
+    # slow both down, so BLAS runs on one thread during the iteration
+    nblas = BLAS.get_num_threads()
+    BLAS.set_num_threads(1)
+    sol = try
+        x  = zeros(n + 1)
+        op = _LinearOperator((y, w) -> apply!(y, precond!(x, w)), n + 1)
+        w  = gmres!(zeros(n + 1), op, [reduce(vcat, rhs); 0.0]; reltol=tol, restart=200, maxiter=200)
+        precond!(zeros(n + 1), w)
+    finally
+        BLAS.set_num_threads(nblas)
+        _ewald_destroy!(E)
+    end
+
+    σ = reduce(vcat, [[sol[(k - 1) * m .+ (1:nD)], sol[(k - 1) * m + nD .+ (1:nN)]] for k in 1:Np])
+    return σ, sol[end]
 
 end
 
@@ -302,7 +469,9 @@ smooth at its edge and is projected with `self_op`.
 - `Γ_D::Boundary`: reference Dirichlet arc boundary.
 - `Γ_N::Boundary`: reference Neumann arc boundary.
 - `g`: Dirichlet boundary data, as a function of arc parameter `s`.
-- `tol`: FMM/GMRES accuracy tolerance (default `1e-6`).
+- `tol`: accuracy of the fast sums and GMRES solves (default `1e-6`). The surfactant
+  system is solved by GMRES to this tolerance from `$(_SURFACTANT_GMRES_MIN)` particles on,
+  and directly below that, where the dense solve is faster.
 - `self_op`: self-flow operator from [`marangoni_self_operator`](@ref); pass a prebuilt one
   when solving repeatedly with the same `Ω`, `Γ_D`, `Γ_N`.
 
@@ -316,7 +485,8 @@ function marangoni_solve(xcm, θcm, Ω, Γ_D::Boundary, Γ_N::Boundary, g; tol=1
 
     Nparticles = length(xcm)
 
-    σ, ϕinf, Γ = surfactant_solve(xcm, θcm, Γ_D, Γ_N, g)
+    σ, ϕinf, Γ = surfactant_solve(xcm, θcm, Γ_D, Γ_N, g;
+                                  tol=Nparticles >= _SURFACTANT_GMRES_MIN ? tol : nothing)
 
     pts  = [exp(im * θcm[i]) .* Ω.z .+ xcm[i] for i in 1:Nparticles]
     Npts     = length(Ω.z)
@@ -329,16 +499,16 @@ function marangoni_solve(xcm, θcm, Ω, Γ_D::Boundary, Γ_N::Boundary, g; tol=1
         shp = size(pts[i])
         own = 2i-1:2i
 
-        # Flow from the other particles: remove the particle's own arcs, sampled with the
-        # same quadrature so the near-edge error cancels
-        sx, sy = ∇ℬ(pts[i], σ[own], Γ[own]; eps=tol)
-        cx = reshape(bx[ri], shp) .- sx
-        cy = reshape(by[ri], shp) .- sy
-
-        # Own flow from its exact PSH coefficients, rotated to the world frame
+        # Own flow: swap its arc quadrature sum, contained in the global evaluation and
+        # inaccurate near the edge, for its exact PSH coefficients; in the body frame,
+        # then rotated to the world frame
+        σi = vcat(σ[own]...)
         ux, uy = real.(ipsh(_marangoni_self_flow(self_op, σ[own]..., Ω), Ω))
+        dx = ux .- reshape(self_op.Bx * σi, shp)
+        dy = uy .- reshape(self_op.By * σi, shp)
         c, s = cos(θcm[i]), sin(θcm[i])
-        uinf[i] = (cx .+ c .* ux .- s .* uy, cy .+ s .* ux .+ c .* uy)
+        uinf[i] = (reshape(bx[ri], shp) .+ c .* dx .- s .* dy,
+                   reshape(by[ri], shp) .+ s .* dx .+ c .* dy)
     end
 
     F = [zeros(3) for _ in 1:Nparticles]
