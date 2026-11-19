@@ -84,7 +84,7 @@ line_col  = P.col;
 % Col 1a: radius vs time
 sp_R = axes(fig); hold(sp_R, 'on'); box(sp_R, 'on');
 plot(sp_R, tv, Rv/Rv(1), '-', 'Color', line_col, 'DisplayName', 'direct');
-plot(sp_R, tv_ff, Rv_ff/Rv_ff(1), '--', 'Color', [0.2 0.2 0.2], 'DisplayName', 'far-field');
+plot(sp_R, tv_ff, Rv_ff/Rv_ff(1), '--', 'Color', P.ink, 'DisplayName', 'far-field');
 legend(sp_R, 'Location', 'southeast', 'Color', 'none', 'FontSize', sp_R.FontSize);
 ylabel(sp_R, '{\it R}/{\it R}_0');
 xlim(sp_R, [0, tf]);
@@ -94,7 +94,7 @@ set(sp_R, 'XTickLabel', {});
 % Col 1b: mean speed vs time
 sp_V = axes(fig); hold(sp_V, 'on'); box(sp_V, 'on');
 plot(sp_V, tv, Ubar/U, '-', 'Color', line_col, 'DisplayName', 'direct');
-plot(sp_V, tv_ff, Ubar_ff/U, '--', 'Color', [0.2 0.2 0.2], 'DisplayName', 'far-field');
+plot(sp_V, tv_ff, Ubar_ff/U, '--', 'Color', P.ink, 'DisplayName', 'far-field');
 xlabel(sp_V, 'time, {\it t}');
 ylabel(sp_V, '\langle{\it u}_{cm,{\it{r}}} \rangle / {\it{U}}');
 xlim(sp_V, [0, tf]);
@@ -145,7 +145,7 @@ xlim(sp_C, xlims + [-xpad, xpad]); ylim(sp_C, ylims + [-ypad, ypad]);
 sb_len = 25 * a;
 sb_x0  = xlims(1) + 0*diff(xlims);
 sb_y   = ylims(1) + 0*diff(ylims);
-line(sp_C, [sb_x0, sb_x0+sb_len], [sb_y, sb_y], 'Color', 'k', 'LineWidth', 2);
+line(sp_C, [sb_x0, sb_x0+sb_len], [sb_y, sb_y], 'Color', P.fg, 'LineWidth', 2);
 text(sp_C, sb_x0 + sb_len/2, sb_y + 0.02*diff(ylims), '25{\it{l}}_*', ...
      'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom', ...
      'FontSize', sp_C.FontSize);
@@ -161,7 +161,7 @@ dR = 5;
 x0v = xbar0 + (R1+dR)*cos(phi);  y0v = ybar0 + (R1+dR)*sin(phi);
 xNv = xbarN + (R2-dR)*cos(phi);  yNv = ybarN + (R2-dR)*sin(phi);
 h = quiver(sp_C, x0v, y0v, xNv-x0v, yNv-y0v, 0, 'Color', [0.5 0.5 0.5]);
-h.Color = 'k';  h.LineWidth = 1;  h.MaxHeadSize = 0.1;
+h.Color = P.fg;  h.LineWidth = 1;  h.MaxHeadSize = 0.1;
 
 % Col 3: surfactant concentration snapshot (from expansion_snapshot.jl)
 fid  = fopen(fullfile(dataRoot, 'patch', 'expansion_snapshot.dat'));

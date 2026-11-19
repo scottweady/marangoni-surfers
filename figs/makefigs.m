@@ -4,12 +4,21 @@
 %   makefigs                   all figures
 %   makefigs single pair       only the named groups: single, pair, suspension
 %   makefigs fig3 fig8         only the named figures, numbered as in the manuscript
+%   makefigs dark ...          dark-mode versions (light ink on a dark background) in
+%                              figs/output/dark/, combined with any of the above
 function makefigs(varargin)
 
 figsDir = fileparts(mfilename('fullpath'));
 addpath(figsDir);
 dataRoot = fullfile(figsDir, '..', 'data');
 outDir  = fullfile(figsDir, 'output');
+
+% dark mode is read by palette and journal_figure, and reset when this function returns
+dark = strcmp(varargin, 'dark');
+varargin = varargin(~dark);
+setappdata(groot, 'figdark', any(dark));
+resetDark = onCleanup(@() setappdata(groot, 'figdark', false));
+if any(dark), outDir = fullfile(outDir, 'dark'); end
 if ~exist(outDir, 'dir'), mkdir(outDir); end
 
 groups = struct( ...

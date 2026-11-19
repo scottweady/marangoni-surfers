@@ -34,3 +34,17 @@ set(fig,'DefaultTextColor','k');
 set(fig,'defaultAxesFontName','Times');
 set(fig,'defaultTextFontName','Times');
 
+% Dark mode (makefigs dark): light text and axes on the dark page colour. The background is
+% opaque, since MATLAB paints a transparent one white wherever a figure uses transparency.
+P = palette();
+if P.dark
+  fig.Color = P.bg;
+  fig.InvertHardcopy = 'off';
+  set(fig,{'DefaultAxesXColor','DefaultAxesYColor','DefaultAxesZColor'},{P.fg,P.fg,P.fg});
+  set(fig,'DefaultAxesColor',P.bg);
+  set(fig,'DefaultTextColor',P.fg);
+  set(fig,'DefaultLegendTextColor',P.fg);
+  set(fig,'DefaultColorbarColor',P.fg);
+  set(fig,'DefaultTextboxshapeColor',P.fg);
+end
+

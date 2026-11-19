@@ -12,7 +12,7 @@ P = palette();
 ab_vals = [0.25, 1.0, 4.0];
 ab_strs = {'0.25', '1.0', '4.0'};
 m       = 5;   % imposed mode
-cols    = P.cmap(7);  cols = cols([3 5 7], :);
+cols    = P.linemap(7);  cols = cols([3 5 7], :);
 t_snap  = [0 1000];   % snapshot times
 outDir  = fullfile(dataRoot, 'tandem');
 Nc = numel(ab_vals);  Ns = numel(t_snap);
@@ -89,7 +89,7 @@ for c = 1:Nc
     name = sprintf('{\\it a/b} = %.2f', ab_vals(c));
     plot(ax(3), t, A(m+1,:), '-', 'Color', cols(c,:), 'DisplayName', name);
     if t(end) < t_snap(end)   % stopped on contact
-        plot(ax(3), t(end), A(m+1,end), 'o', 'Color', cols(c,:), 'MarkerFaceColor', 'w', 'HandleVisibility', 'off');
+        plot(ax(3), t(end), A(m+1,end), 'o', 'Color', cols(c,:), 'MarkerFaceColor', P.bg, 'HandleVisibility', 'off');
     end
     Q = load(fullfile(outDir, ['tandem_prediction_' ab_strs{c} '.dat']));  % columns: t  |Θ|
     plot(ax(3), Q(:,1), Q(:,2), ':', 'Color', cols(c,:), 'HandleVisibility', 'off');
@@ -103,7 +103,7 @@ for c = 1:Nc
     plot(ax(2), D(:,1), [D(:,6), -D(:,6)], '--', 'Color', cols(c,:));
 end
 
-plot(ax(3), NaN, NaN, 'k:', 'DisplayName', 'linear theory');
+plot(ax(3), NaN, NaN, ':', 'Color', P.fg, 'DisplayName', 'linear theory');
 
 for k = 1:Ns, title(as(1,k), sprintf('{\\it t} = %d', t_snap(k)), 'FontWeight', 'normal'); end
 set(as(1:end-1,:), 'XTickLabel', {});

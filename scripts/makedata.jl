@@ -170,6 +170,12 @@ function tandem()
     run_script("figs/tandem_snapshot.jl", :tandemdir => tandemdir, :outdir => tandemdir;
                done=all(isfile, [joinpath(tandemdir, "tandem_snapshot_$(r)_t$(t).dat")
                                  for r in (0.25, 1.0, 4.0), t in (0, 1000)]))
+
+    # taller field around the unstable chain, for the graphical abstract
+    gadir = joinpath(DATA, "graphical_abstract")
+    run_script("figs/tandem_snapshot.jl", :aspect_ratios => [4.0], :t_snaps => [1000.0],
+               :yh_min => 75.0, :tandemdir => tandemdir, :outdir => gadir;
+               done=isfile(joinpath(gadir, "tandem_snapshot_4.0_t1000.dat")))
 end
 
 # -- Run -----------------------------------------------------------------------

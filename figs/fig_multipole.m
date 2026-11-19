@@ -121,7 +121,7 @@ hold(sp3, 'on'); box(sp3, 'on');
 
 plot(sp3, d, abs(I1_th0) .* d .* log(d), 'Color', P.c1, 'DisplayName', '({\it{r}} log {\it{r}}) {\it{m}}_{0,1}');
 plot(sp3, d, abs(I1_th0) .* d, 'Color', P.c2, 'DisplayName', '{\it{r}} {\it{m}}_{0,1}');
-plot(sp3, d, pi/2 * ones(size(d)), 'k--', 'HandleVisibility', 'off');
+plot(sp3, d, pi/2 * ones(size(d)), '--', 'Color', P.fg, 'HandleVisibility', 'off');
 % plot(sp3, d, abs(I1_thpi2)./(d .* log(d)), 'Color', P.c2, 'DisplayName', '{\it \theta} = {\it \pi}/2');
 % plot(sp3, d_fine, fit0, '--', 'Color', [0.6 0.2 0.2], 'DisplayName', '\propto 1/({\it{r}} log{\it r})')
 xlabel(sp3, 'separation, {\it r}');

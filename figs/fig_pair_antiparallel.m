@@ -66,6 +66,7 @@ for k = 1:Np
     streamslice(ax(k), xplt, yplt, U, V, 2);
     h = setdiff(ax(k).Children, before);
     set(h, 'Color', 'w', 'LineWidth', 1);
+    thin_lines(h, 10);
 end
 
 cb = colorbar(ax(end), 'Location', 'eastoutside', 'Ticks', 0:0.5:1);
@@ -77,7 +78,7 @@ traj_ab = [0.25, 1, 4.0, 16.0];
 traj_d  = [8.0, 8.0, 8.0, 2.0];
 Nt = numel(traj_ab);
 
-cmap = P.cmap(Nt+1);
+cmap = P.linemap(Nt+1);
 cmap = cmap(2:end, :);
 axSep = axes(fig); hold(axSep, 'on'); box(axSep, 'on');
 axOmg = axes(fig); hold(axOmg, 'on'); box(axOmg, 'on');
@@ -94,7 +95,7 @@ for k = 1:Nt
     plot(axOmg, t, ang1 + pi/2, 'Color', c, 'HandleVisibility', 'off');
     [U, eta, beta, tau0, tau1] = single_particle(traj_ab(k));
     opts = odeset('RelTol', 1e-12, 'AbsTol', 1e-12, 'Events', @contact);
-    [tf, Y] = ode45(@(~, y) farfield_rhs(y, U, eta, beta, tau0, tau1), [0 200], A(1, 2:7)', opts);
+    [tf, Y] = ode45(@(~, y) farfield_rhs(y, U, eta, beta, tau0, tau1), linspace(0, 200, 1001), A(1, 2:7)', opts);
     sep_ff = hypot(Y(:,1) - Y(:,4), Y(:,2) - Y(:,5));
     plot(axSep, tf, sep_ff, '--', 'Color', c);
     plot(axOmg, tf, unwrap(Y(:,3)) + pi/2, '--', 'Color', c, 'HandleVisibility', 'off');

@@ -79,7 +79,7 @@ for r = 1:Nr
                  snap_cols(2,:), 'EdgeColor', 'none', 'FaceAlpha', 0.15);
         end
 
-        plot(ax(r,c), X{r,c}', Y{r,c}', '-', 'Color', [0.4 0.4 0.4], 'LineWidth', 0.75);
+        plot(ax(r,c), X{r,c}', Y{r,c}', '-', 'Color', P.grey, 'LineWidth', 0.75);
 
         frames = {d0, dN};
         for f = 1:2
@@ -100,7 +100,7 @@ end
 
 % scale bar in (a)
 sb_len = 25;
-line(ax(1,1), xlims(1) + [0 sb_len], ylims(1)*[1 1], 'Color', 'k', 'LineWidth', 2);
+line(ax(1,1), xlims(1) + [0 sb_len], ylims(1)*[1 1], 'Color', P.fg, 'LineWidth', 2);
 text(ax(1,1), xlims(1) + sb_len/2, ylims(1) + 0.02*diff(ylims), '25{\it{l}}_*', ...
      'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom', 'FontSize', ax(1,1).FontSize);
 

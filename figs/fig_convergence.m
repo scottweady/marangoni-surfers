@@ -24,7 +24,7 @@ styles     = {'-', '--', ':', '-.'};
 % ── Colors ────────────────────────────────────────────────────────────────────
 nr = numel(ratios);
 P = palette();
-cmap = P.cmap(nr + 2);
+cmap = P.linemap(nr + 2);
 cmap = cmap(2:nr+1, :);
 color_of = @(r) cmap(abs(ratios - r) < 1e-12, :);
 
@@ -36,16 +36,16 @@ axM = axes(fig); hold(axM, 'on'); box(axM, 'on');
 
 for k = 1:nr
     plot(axN, N, errN(:,k), '-o', 'Color', cmap(k,:), 'MarkerSize', 4, ...
-        'MarkerFaceColor', 'w', 'DisplayName', ['{\it a/b} = ' ratio_label(ratios(k))]);
+        'MarkerFaceColor', P.bg, 'DisplayName', ['{\it a/b} = ' ratio_label(ratios(k))]);
 end
 
 for j = 1:numel(pairRatios)
     ls = styles{find(gaps == pairGaps(j), 1)};
     plot(axM, M, errM(:,j), [ls 'o'], 'Color', color_of(pairRatios(j)), 'MarkerSize', 4, ...
-        'MarkerFaceColor', 'w', 'HandleVisibility', 'off');
+        'MarkerFaceColor', P.bg, 'HandleVisibility', 'off');
 end
 for i = 1:numel(gaps)
-    plot(axM, NaN, NaN, styles{i}, 'Color', 'k', ...
+    plot(axM, NaN, NaN, styles{i}, 'Color', P.fg, ...
         'DisplayName', sprintf('{\\it d} = %g', gaps(i)));
 end
 

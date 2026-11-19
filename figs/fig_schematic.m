@@ -56,11 +56,14 @@ end
 plot3(axA, corners(:, 1), corners(:, 2), -Lz*ones(5, 1), ':', 'Color', [0.5 0.5 0.5]);
 
 surf(axA, [x0 x1; x0 x1], [y0 y0; y1 y1], zeros(2), phi, 'FaceColor', 'texturemap', 'EdgeColor', 'none');
-plot3(axA, corners(:, 1), corners(:, 2), zeros(5, 1), '-', 'Color', [0.2 0.2 0.2]);
+plot3(axA, corners(:, 1), corners(:, 2), zeros(5, 1), '-', 'Color', P.ink);
 
+% in dark mode the particles are dark with a light edge, as in the presentation's animations
+face = 'w'; edge = 'k';
+if P.dark, face = [42 34 48] / 255; edge = P.fg; end
 for j = 1:N
     [ex, ey] = ellipse_xy(s, j);
-    fill3(axA, ex, ey, 0*ex, 'w', 'EdgeColor', 'k', 'LineWidth', 1);
+    fill3(axA, ex, ey, 0*ex, face, 'EdgeColor', edge, 'LineWidth', 1);
 end
 
 % Zoom window for (b)
@@ -131,6 +134,9 @@ quiver(axB, xcm(k), ycm(k), Lp*p(1), Lp*p(2), 0, 'k', 'LineWidth', 2, 'MaxHeadSi
 text(axB, xcm(k) + Lp*p(1), ycm(k) + Lp*p(2), '  {\bf p}_{\it i}');
 plot(axB, xcm(k), ycm(k), 'k.', 'MarkerSize', 24);
 text(axB, xcm(k) - 0.05, ycm(k) - 0.1, '{\bf x}_{cm,{\it i}}', 'VerticalAlignment', 'top');
+
+% labels sit on the concentration field, so stay dark in either mode
+set(findobj(axB, 'Type', 'text'), 'Color', 'k');
 
 xlim(axB, xz([1 end])); ylim(axB, yz([1 end]));
 colormap(axB, P.cmap()); clim(axB, [0 1]);
