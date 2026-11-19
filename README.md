@@ -1,19 +1,8 @@
-# MarangoniSurfers.jl
+# A boundary integral formulation for microscale Marangoni surfing
 
-Boundary integral simulation of Marangoni surfers: rigid particles on a fluid interface,
-self-propelled by the surface tension gradient of the surfactant they release. This is the
-code for *A boundary integral formulation for microscale Marangoni surfing* (S. Weady).
+**Abstract:** We consider a model for collections of surfactant-producing particles moving along the surface of a viscous fluid under their self-generated Marangoni flows. Such systems are challenging due to their nonlocal nature: particle motion is coupled to Marangoni stresses distributed across the entire fluid surface and to the resulting flows in the bulk. In the low Reynolds and Péclet number limit, we reduce these nonlocal effects to a system of integral equations supported solely on the particles and their boundaries. This formulation is not only computationally tractable, but also provides a framework for systematically coarse-graining many-particle systems. Numerical simulations, performed with a custom spectral method, show collective dynamics are highly sensitive to shape. In particular, among elliptical particles, we find prolate particles tend to attract while oblate particles tend to repel, and these geometric details control the stability of polarized populations. We rationalize these behaviors through a far-field expansion of the boundary integral equations and its corresponding reduced-order model.
 
-The package solves, for a suspension of elliptical surfers,
-
-- the surfactant problem: a mixed Dirichlet/Neumann Laplace problem on each particle's
-  boundary arcs, by a boundary integral method (dense for a few particles; GMRES with
-  Ewald-summed interactions and a far-field preconditioner for many);
-- the Marangoni flow and the particles' rigid-body velocities, through the Stokes mobility
-  solver of [ProjectedSphericalHarmonics.jl](https://github.com/scottweady/ProjectedSphericalHarmonics.jl);
-- the time evolution of the suspension, by an adaptive midpoint method;
-
-along with the far-field (multipole) model of the suspension.
+The preprint is available on **[arxiv](https://arxiv.org/abs/2611.24766)**.
 
 ## Installation
 
@@ -82,8 +71,6 @@ julia --project=scripts scripts/makedata.jl tandem     # or one group: single, p
 `makedata.jl` lists the groups and options (`resume`, `data=<dir>`). The figures are then
 drawn in MATLAB with `figs/makefigs.m`, which reads `data/` and writes PDFs to
 `figs/output/`.
-
-The results in the paper were computed with the code tagged `paper-v1`.
 
 ## Layout
 
