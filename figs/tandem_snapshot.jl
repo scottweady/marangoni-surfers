@@ -12,7 +12,8 @@
 
 using DelimitedFiles, Statistics
 
-include("../src/marangoni.jl")
+using MarangoniSurfers
+using Printf
 
 aspect_ratios = script_param(:aspect_ratios, [0.25, 1.0, 4.0])
 t_snaps       = script_param(:t_snaps, [0.0, 1000.0])

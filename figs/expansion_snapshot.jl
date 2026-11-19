@@ -9,7 +9,8 @@
 
 using DelimitedFiles
 
-include("../src/marangoni.jl")
+using MarangoniSurfers
+using Printf
 
 t_snap = script_param(:t_snap, 250.0)
 

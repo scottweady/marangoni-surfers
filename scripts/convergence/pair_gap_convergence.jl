@@ -13,7 +13,9 @@
 #   Header: N_ref, M_ref, tol, orientation, aspect ratios, edge gaps
 #   Rows:   M (or N)  followed by the error for each configuration
 
-include("../../src/marangoni.jl")
+using MarangoniSurfers
+using Plots
+using Printf
 
 # -- Parameters ----------------------------------------------------------------
 

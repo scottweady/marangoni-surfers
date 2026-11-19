@@ -10,7 +10,8 @@
 #   Lines (4+Ny)..(3+2Ny):  u matrix (x-velocity)
 #   Lines (4+2Ny)..(3+3Ny): v matrix (y-velocity)
 
-include("../../src/marangoni.jl")
+using MarangoniSurfers
+using Printf
 
 # -- Parameters ----------------------------------------------------------------
 

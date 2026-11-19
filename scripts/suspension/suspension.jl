@@ -4,7 +4,7 @@
 # Output: output/frames_<a/b>/frame_<n>.png and frame_<n>.dat, one row per particle
 #   t  x  y  θ  ux  uy  ω
 
-include("../../src/marangoni.jl")
+using MarangoniSurfers
 
 # -- Parameters ----------------------------------------------------------------
 

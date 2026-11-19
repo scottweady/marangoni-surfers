@@ -4,7 +4,8 @@
 # Output: output/monopole_vs_separation.dat
 #   d  I1  I2 (aligned)  I1  I2 (perpendicular)
 
-include("../../src/marangoni.jl")
+using MarangoniSurfers
+using Printf
 
 # -- Parameters ----------------------------------------------------------------
 

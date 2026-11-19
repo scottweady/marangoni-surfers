@@ -17,7 +17,9 @@
 
 using Random, Statistics
 
-include("../src/marangoni.jl")
+using MarangoniSurfers
+using MarangoniSurfers: _find_preimage
+using Printf
 
 # -- Geometry ------------------------------------------------------------------
 

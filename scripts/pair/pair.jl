@@ -7,7 +7,9 @@
 #   t  x1  y1  θ1  x2  y2  θ2  gap
 # where gap is the minimum boundary-to-boundary distance.
 
-include("../../src/marangoni.jl")
+using MarangoniSurfers
+using Plots
+using Printf
 
 # -- Parameters ----------------------------------------------------------------
 

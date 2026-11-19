@@ -7,7 +7,9 @@
 #   Header: N_fine, M_fine, aspect ratios, exact speeds
 #   Rows:   M (or N)  followed by the error for each aspect ratio
 
-include("../../src/marangoni.jl")
+using MarangoniSurfers
+using Plots
+using Printf
 
 using SpecialFunctions: ellipk, ellipe
 

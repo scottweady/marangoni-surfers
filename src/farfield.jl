@@ -1,6 +1,3 @@
-using LinearAlgebra
-using Printf
-using SpecialFunctions
 
 """
     farfield_constants(aspect_ratio; s₀=π/2)

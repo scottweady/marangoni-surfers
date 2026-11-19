@@ -6,8 +6,8 @@
 # Output: <outdir>/frame_<n>.dat, one row per particle
 #   t  x  y  θ  ux  uy  ω
 
-include("../../src/script_params.jl")
-include("../../src/farfield.jl")
+using MarangoniSurfers
+using Printf
 
 aspect_ratio = script_param(:aspect_ratio, 1.0)
 closure      = script_param(:closure, false)

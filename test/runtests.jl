@@ -5,10 +5,14 @@
 #
 #     julia --project=.. runtests.jl              # quick pass/fail summary
 #     julia --project=.. runtests.jl --verbose    # full convergence study
+#
+# or, from the package environment, `using Pkg; Pkg.test()` for the quick summary.
 
 using Test
+using LinearAlgebra: norm
 
-include("../src/bie/bie.jl")
+using MarangoniSurfers
+using MarangoniSurfers: dot, _laplace2d_single_layer_phi_cross   # internals used by the tests
 
 const VERBOSE = "--verbose" in ARGS
 
@@ -64,7 +68,6 @@ end
     include("test_mixed_exterior.jl")
 
     # Marangoni solvers
-    include("../src/marangoni.jl")
     include("test_surfer.jl")
     include("test_multiparticle.jl")
 

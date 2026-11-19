@@ -28,8 +28,8 @@
 
 using QuadGK
 
-include("../../src/script_params.jl")
-include("../../src/farfield.jl")
+using MarangoniSurfers
+using Printf
 
 aspect_ratios = script_param(:aspect_ratios, [0.25, 1.0, 4.0])
 N             = script_param(:N, 50)

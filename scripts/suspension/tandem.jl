@@ -8,7 +8,7 @@
 
 using Random
 
-include("../../src/marangoni.jl")
+using MarangoniSurfers
 
 # -- Parameters ----------------------------------------------------------------
 
