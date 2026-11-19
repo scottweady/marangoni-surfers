@@ -8,7 +8,6 @@
 #   Rows:   M (or N)  followed by the error for each aspect ratio
 
 using MarangoniSurfers
-using Plots
 using Printf
 
 using SpecialFunctions: ellipk, ellipe
@@ -20,6 +19,7 @@ g(s) = -cos(s)
 
 aspect_ratios = [0.25, 0.5, 1.0, 2.0, 4.0]
 show_plots    = script_param(:plot, true)   # display the convergence plots at the end
+show_plots && @eval using Plots   # loaded only when plotting
 
 N_fine = 128
 M_fine = 32

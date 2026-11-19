@@ -8,7 +8,6 @@
 # where gap is the minimum boundary-to-boundary distance.
 
 using MarangoniSurfers
-using Plots
 using Printf
 
 # -- Parameters ----------------------------------------------------------------
@@ -20,6 +19,7 @@ aspect_ratios = script_param(:aspect_ratios, [4.0])
 Δx_range      = script_param(:Δx_range, [4.0])
 orient        = script_param(:orient, :parallel)   # or :parallel
 show_plots    = script_param(:plot, true)              # display the pair at each step
+show_plots && @eval using Plots   # loaded only when plotting
 
 # -- Discretization ------------------------------------------------------------
 

@@ -243,7 +243,7 @@ Frames are displayed every
   plot extent, so all particles stay in view as they move (default `4.0`).
 - `verbose`: print the time and step size after each step (default `true`).
 - `render`: render, display and save frames (default `true`); if `false`, only the
-  configuration `.dat` files are written.
+  configuration `.dat` files are written. Rendering requires Plots.jl (`using Plots`).
 - `self_op`: self-flow operator from [`marangoni_self_operator`](@ref), built once and reused
   at every step.
 
@@ -267,6 +267,9 @@ function suspension_simulate(xcm0, θcm0, Ω, Γ_D::Boundary, Γ_N::Boundary, g;
                   verbose=true,
                   render=true,
                   self_op=marangoni_self_operator(Ω, Γ_D, Γ_N))
+
+    render && !_plots_loaded() &&
+        throw(ArgumentError("render=true needs Plots.jl: run `using Plots` first, or pass render=false"))
 
     xcm, θcm = copy(xcm0), copy(θcm0)
 
@@ -305,8 +308,7 @@ function suspension_simulate(xcm0, θcm0, Ω, Γ_D::Boundary, Γ_N::Boundary, g;
         if render
             xlims0, ylims0 = plot_lims(xcm)
             p0 = plot_concentration(xcm, σ0, ϕinf0, Γ0; title="t = 0.00", colors=colors, cmap=cmap, xlims=xlims0, ylims=ylims0)
-            display(p0)
-            !isempty(plot_dir) && savefig(p0, joinpath(plot_dir, "frame_000000.png"))
+            _show_frame(p0, isempty(plot_dir) ? "" : joinpath(plot_dir, "frame_000000.png"))
         end
         save_config("000000", 0.0, xcm, θcm, U0)
     end
@@ -346,15 +348,13 @@ function suspension_simulate(xcm0, θcm0, Ω, Γ_D::Boundary, Γ_N::Boundary, g;
             !isempty(plot_dir) && mkpath(plot_dir)
             if render
                 if plot_mode == :distance
-                    p = plot(traj_t, dists .- 2.0, xlabel="t", ylabel="|r₂ − r₁|",
-                             legend=false, title="particle separation")
+                    p = _plot_separation(traj_t, dists .- 2.0)
                 else
                     xlims, ylims = plot_lims(xcm_plot)
                     p = plot_concentration(xcm_plot, σ, ϕinf, Γ;
                                            title="t = $(round(t, digits=2))", colors=colors, cmap=cmap, xlims=xlims, ylims=ylims)
                 end
-                display(p)
-                !isempty(plot_dir) && savefig(p, joinpath(plot_dir, "frame_$(frame).png"))
+                _show_frame(p, isempty(plot_dir) ? "" : joinpath(plot_dir, "frame_$(frame).png"))
             end
             save_config(frame, t, xcm, θcm, U1)
             next_plot += plot_every

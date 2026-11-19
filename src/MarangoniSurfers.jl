@@ -10,7 +10,9 @@ The module is organized in layers:
 - `solvers.jl`: surfactant and Marangoni flow solves for a suspension of elliptical surfers.
 - `simulation.jl`: adaptive time integration of the full (boundary integral) model.
 - `farfield.jl`: far-field (multipole) model of the suspension.
-- `plotting.jl`: surfactant concentration plots.
+- `plotting.jl`: surfactant concentration on a grid, and the plotting functions, whose
+  methods come from the Plots.jl extension (`ext/MarangoniSurfersPlotsExt.jl`, loaded with
+  `using Plots`).
 - `script_params.jl`: command-line parameter overrides for the scripts in `scripts/`.
 """
 module MarangoniSurfers
@@ -19,7 +21,6 @@ using FastGaussQuadrature
 using FFTW
 using FMM3D
 using LinearAlgebra
-using Plots
 using Printf
 using ProjectedSphericalHarmonics
 using SpecialFunctions
@@ -59,5 +60,14 @@ include("solvers.jl")
 include("simulation.jl")
 include("farfield.jl")
 include("plotting.jl")
+
+function __init__()
+    # Point to `using Plots` when a plotting function is called without the extension
+    Base.Experimental.register_error_hint(MethodError) do io, exc, argtypes, kwargs
+        if exc.f === plot_concentration && !_plots_loaded()
+            print(io, "\nplot_concentration is defined by the Plots.jl extension: run `using Plots` first.")
+        end
+    end
+end
 
 end

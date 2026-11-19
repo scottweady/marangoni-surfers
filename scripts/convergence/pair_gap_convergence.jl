@@ -14,7 +14,6 @@
 #   Rows:   M (or N)  followed by the error for each configuration
 
 using MarangoniSurfers
-using Plots
 using Printf
 
 # -- Parameters ----------------------------------------------------------------
@@ -26,6 +25,7 @@ aspect_ratios = script_param(:aspect_ratios, [0.25, 1.0, 4.0])
 gaps          = script_param(:gaps, [1.0, 0.1, 0.01])
 orient        = script_param(:orient, :antiparallel)   # or :parallel
 show_plots    = script_param(:plot, true)              # display the convergence plots at the end
+show_plots && @eval using Plots   # loaded only when plotting
 
 N_ref = script_param(:N_ref, 1024)
 M_ref = script_param(:M_ref, 32)

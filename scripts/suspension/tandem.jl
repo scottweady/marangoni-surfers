@@ -27,6 +27,7 @@ seed         = script_param(:seed, 1)
 t_end        = script_param(:t_end, 1000.0)
 save_every   = script_param(:save_every, 10.0)
 render       = script_param(:plot, true)    # render, display and save each frame
+render && @eval using Plots   # loaded only when plotting
 outdir       = script_param(:outdir, joinpath(@__DIR__, "output",
                                              "tandem_$(aspect_ratio)_N$(N)_d$(d)" *
                                              (ε > 0 ? "_m$(m)_ε$(ε)" : "") *

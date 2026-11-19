@@ -16,6 +16,7 @@ g(s) = -cos(s)
 aspect_ratio = script_param(:aspect_ratio, 4.0)
 t_end        = script_param(:t_end, 200.0)
 render       = script_param(:plot, true)   # render, display and save each frame
+render && @eval using Plots   # loaded only when plotting
 a = sqrt(aspect_ratio)
 b = 1.0 / a
 
